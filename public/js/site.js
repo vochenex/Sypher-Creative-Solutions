@@ -21,38 +21,48 @@
     if (e.key === 'Escape' && nav.classList.contains('is-open')) { setMenu(false); menuBtn.focus(); }
   });
 
-  /* ---------- Header tuck (HIGH only) ---------- */
-  var header = $('site-header'), lastY = window.scrollY, ticking = false;
-  window.addEventListener('scroll', function () {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(function () {
-      var y = window.scrollY;
-      var tuckAllowed = flags && flags.navigation === 'full' && root.getAttribute('data-motion') === 'full';
-      header.classList.toggle('is-tucked', tuckAllowed && y > 120 && y > lastY && !nav.classList.contains('is-open'));
-      lastY = y;
-      ticking = false;
-    });
-  }, { passive: true });
+  /* ---------- Header (tuck-on-scroll lives in high-effects.js) ---------- */
+  var header = $('site-header');
   header.addEventListener('focusin', function () { header.classList.remove('is-tucked'); });
+  S.menuOpen = function () { return nav.classList.contains('is-open'); };
 
-  /* ---------- Headline split ---------- */
+  /* ---------- Headline split: each word sits in a clipping mask for the HIGH reveal ---------- */
   var title = document.querySelector('[data-split]');
   if (title) {
     var words = title.textContent.trim().split(/\s+/);
     title.setAttribute('aria-label', title.textContent.trim());
     title.textContent = '';
     words.forEach(function (w, i) {
-      var span = document.createElement('span');
-      span.className = 'w';
-      span.setAttribute('aria-hidden', 'true');
-      span.style.setProperty('--i', i);
-      span.textContent = w;
-      title.appendChild(span);
+      var mask = document.createElement('span');
+      mask.className = 'w';
+      mask.setAttribute('aria-hidden', 'true');
+      var inner = document.createElement('span');
+      inner.className = 'w__i';
+      inner.textContent = w;
+      mask.appendChild(inner);
+      title.appendChild(mask);
       if (i < words.length - 1) title.appendChild(document.createTextNode(' '));
     });
     title.classList.add('is-split');
   }
+
+  /* ---------- Intro hold: only HIGH with full motion keeps it; high-effects.js releases it ---------- */
+  var introTimer = null;
+  function releaseIntro() { clearTimeout(introTimer); root.classList.remove('intro-pending'); }
+  S.releaseIntro = releaseIntro;
+
+  /* ---------- Services accordion (all panels stay open without JavaScript) ---------- */
+  var svcItems = Array.prototype.slice.call(document.querySelectorAll('.svc'));
+  function setSvc(item, open) {
+    item.classList.toggle('is-open', open);
+    item.querySelector('.svc__toggle').setAttribute('aria-expanded', String(open));
+  }
+  svcItems.forEach(function (item) {
+    item.querySelector('.svc__toggle').addEventListener('click', function () {
+      var willOpen = !item.classList.contains('is-open');
+      svcItems.forEach(function (other) { setSvc(other, other === item && willOpen); });
+    });
+  });
 
   /* ---------- Reveals ---------- */
   var reveals = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
@@ -194,34 +204,91 @@
     restartAuto();
   }
 
-  /* ---------- Video block ---------- */
-  var videoBlock = $('video-block'), playBtn = $('video-play'), player = $('video-player');
+  /* ---------- Showreel ----------
+     HIGH (inview-muted): a muted loop starts once the frame is half on screen; sound and controls
+     start only from a Play click. MEDIUM and BASIC load the file on click. Reduced motion never previews. */
+  var videoBlock = $('video-block'), playBtn = $('video-play'), video = $('showreel-video');
+  var poster = videoBlock.querySelector('.video-block__poster');
+  var missing = videoBlock.querySelector('.video-block__missing');
+  var progressArc = videoBlock.querySelector('.play-progress__arc');
+  var reelPlay = $('reel-play');
   var videoObserver = null;
-  playBtn.addEventListener('click', function () {
-    player.hidden = false;
+  var engaged = false;
+
+  video.addEventListener('error', function () {
+    missing.hidden = false;
+    video.hidden = true;
     playBtn.hidden = true;
-    videoBlock.querySelector('.video-block__poster').hidden = true;
-    var video = player.querySelector('video');
-    var missing = player.querySelector('.video-block__missing');
-    var lastSource = video.querySelectorAll('source');
-    lastSource[lastSource.length - 1].addEventListener('error', function () { missing.hidden = false; video.hidden = true; });
-    video.load();
+    videoBlock.classList.remove('is-previewing', 'is-playing');
+  });
+  video.addEventListener('timeupdate', function () {
+    if (!progressArc || !video.duration) return;
+    progressArc.style.strokeDashoffset = String(1 - video.currentTime / video.duration);
+  });
+
+  function playFull() {
+    engaged = true;
+    if (videoObserver) { videoObserver.disconnect(); videoObserver = null; }
+    videoBlock.classList.remove('is-previewing', 'is-inview');
+    videoBlock.classList.add('is-playing');
+    poster.hidden = true;
+    playBtn.hidden = true;
+    video.hidden = false;
+    video.loop = false;
+    video.muted = false;
+    video.controls = true;
+    video.preload = 'auto';
+    try { video.currentTime = 0; } catch (e) { /* play() still starts at the beginning if seek fails before metadata */ }
     var pr = video.play();
     if (pr && pr.catch) pr.catch(function () {});
     video.focus();
+  }
+  playBtn.addEventListener('click', playFull);
+  reelPlay.addEventListener('click', function () {
+    var top = videoBlock.getBoundingClientRect().top + window.scrollY - 90;
+    window.scrollTo({ top: Math.max(0, top), behavior: root.getAttribute('data-motion') === 'full' ? 'smooth' : 'auto' });
+    playFull();
   });
+
+  function previewOn() {
+    if (engaged) return;
+    video.muted = true;
+    video.loop = true;
+    video.controls = false;
+    video.preload = 'auto';
+    var pr = video.play();
+    if (pr && pr.then) pr.then(function () { if (!engaged) videoBlock.classList.add('is-previewing'); }, function () {});
+  }
+  function previewOff() {
+    if (engaged) return;
+    video.pause();
+    videoBlock.classList.remove('is-previewing');
+  }
 
   function setupVideo() {
     if (videoObserver) { videoObserver.disconnect(); videoObserver = null; }
-    videoBlock.classList.remove('is-inview');
-    playBtn.querySelector('.video-block__play-text').textContent = flags.videoBanners === 'poster-link' ? 'Watch video (2:14)' : 'Play showreel (2:14)';
-    if (flags.videoBanners === 'inview-muted' && 'IntersectionObserver' in window) {
-      videoObserver = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) { videoBlock.classList.toggle('is-inview', en.intersectionRatio >= 0.5); });
-      }, { threshold: [0, 0.5] });
-      videoObserver.observe(videoBlock);
+    playBtn.querySelector('.video-block__play-text').textContent = flags.videoBanners === 'poster-link' ? 'Watch video (0:48)' : 'Play showreel (0:48)';
+    if (!engaged) {
+      previewOff();
+      video.controls = false;
+      videoBlock.classList.remove('is-inview');
     }
+    var preview = !engaged && flags.videoBanners === 'inview-muted' && root.getAttribute('data-motion') === 'full' && 'IntersectionObserver' in window;
+    if (!preview) return;
+    videoObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        var on = en.intersectionRatio >= 0.5;
+        videoBlock.classList.toggle('is-inview', on);
+        if (on) previewOn(); else previewOff();
+      });
+    }, { threshold: [0, 0.5] });
+    videoObserver.observe(videoBlock);
   }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { if (engaged) video.pause(); else previewOff(); }
+    else if (!engaged && videoBlock.classList.contains('is-inview')) previewOn();
+  });
 
   /* ---------- Hero pause control ---------- */
   var heroPause = $('hero-pause'), heroPaused = false;
@@ -267,6 +334,9 @@
     setupVideo();
     setupHero();
     if (flags.navigation !== 'full') header.classList.remove('is-tucked');
+    var highIntro = root.getAttribute('data-mode') === 'high' && root.getAttribute('data-motion') === 'full';
+    if (!highIntro) releaseIntro();
+    else if (!introTimer && root.classList.contains('intro-pending')) introTimer = setTimeout(releaseIntro, 2500);
   }
   document.addEventListener('adaptive:ready', onMode);
   document.addEventListener('adaptive:modechange', onMode);

@@ -55,13 +55,20 @@
   function loadHighEffects() {
     if (S.highEffects) return Promise.resolve(S.highEffects);
     if (highEffectsLoading) return highEffectsLoading;
-    highEffectsLoading = new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = 'js/effects/high-effects.js';
-      s.onload = function () { resolve(S.highEffects); };
-      s.onerror = function () { highEffectsLoading = null; reject(new Error('high-effects failed to load')); };
-      document.head.appendChild(s);
-    });
+    function load(src) {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = function () { reject(new Error(src + ' failed to load')); };
+        document.head.appendChild(s);
+      });
+    }
+    // GSAP is HIGH-only; MEDIUM and BASIC never download it.
+    highEffectsLoading = load('js/vendor/gsap.min.js')
+      .then(function () { return load('js/vendor/ScrollTrigger.min.js'); })
+      .then(function () { return load('js/effects/high-effects.js'); })
+      .then(function () { return S.highEffects; }, function (err) { highEffectsLoading = null; throw err; });
     return highEffectsLoading;
   }
 

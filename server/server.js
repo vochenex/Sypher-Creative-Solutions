@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 const { sendJson, sendError, HttpError, readJson, createRateLimiter } = require('./lib/http');
 const deviceProfile = require('./routes/device-profile');
@@ -145,7 +146,31 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res, url);
 });
 
+function openBrowser(url) {
+  const [cmd, args] =
+    process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] :
+    process.platform === 'darwin' ? ['open', [url]] :
+    ['xdg-open', [url]];
+  try {
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
+    child.on('error', () => console.log(`Could not open a browser; visit ${url} manually.`));
+    child.unref();
+  } catch {
+    console.log(`Could not open a browser; visit ${url} manually.`);
+  }
+}
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Stop the other server or run with a different PORT.`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, () => {
-  console.log(`Sypher adaptive site running at http://localhost:${PORT}`);
-  console.log(`Debug view:  http://localhost:${PORT}/?debug=1`);
+  const url = `http://localhost:${PORT}`;
+  console.log(`Sypher adaptive site running at ${url}`);
+  console.log(`Debug view:  ${url}/?debug=1`);
+  if (process.argv.includes('--open')) openBrowser(url);
 });

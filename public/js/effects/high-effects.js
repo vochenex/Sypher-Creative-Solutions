@@ -1,12 +1,23 @@
-/* HIGH-only effects, loaded on demand: WebGL flow-field hero, cursor light, card tilt, parallax.
-   Never downloaded in MEDIUM or BASIC. Everything pauses when off-screen or the tab is hidden. */
+/* HIGH-only effects, loaded on demand after GSAP + ScrollTrigger: hero choreography, WebGL light field,
+   scroll scenes, magnetic buttons, spotlight borders. Never downloaded in MEDIUM or BASIC.
+   Everything is reverted by stop(), and nothing runs under reduced motion. */
 (function (S) {
   'use strict';
 
+  var gsap = window.gsap, ScrollTrigger = window.ScrollTrigger;
+  if (!gsap || !ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+
   var root = document.documentElement;
   var finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+  var EASE = 'expo.out';
 
-  /* ---------- WebGL hero ---------- */
+  function release() {
+    if (S.releaseIntro) S.releaseIntro();
+    else root.classList.remove('intro-pending');
+  }
+
+  /* ---------- WebGL hero: a soft light field drifting across the paper card ---------- */
 
   var VERT = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
   var FRAG = [
@@ -15,34 +26,35 @@
     'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
     'float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);',
     '  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }',
-    'float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.02; a *= 0.5; } return v; }',
+    'float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }',
     'void main(){',
     '  vec2 uv = gl_FragCoord.xy / u_res;',
-    '  vec2 p = uv * vec2(u_res.x / u_res.y, 1.0) * 1.6;',
-    '  float t = u_time * 0.045;',
+    '  float asp = u_res.x / u_res.y;',
+    '  vec2 p = uv * vec2(asp, 1.0) * 1.35;',
+    '  float t = u_time * 0.04;',
     '  vec2 q = vec2(fbm(p + t), fbm(p + vec2(5.2, 1.3) - t));',
-    '  vec2 r = vec2(fbm(p + 3.0 * q + vec2(1.7, 9.2) + t * 1.5), fbm(p + 3.0 * q + vec2(8.3, 2.8) - t));',
-    '  float f = fbm(p + 3.0 * r + (u_mouse - 0.5) * 0.8);',
-    '  vec3 base = vec3(0.055, 0.067, 0.086);',
-    '  vec3 sage = vec3(0.32, 0.45, 0.44);',
-    '  vec3 lav  = vec3(0.40, 0.37, 0.53);',
-    '  vec3 sand = vec3(0.50, 0.42, 0.30);',
-    '  vec3 col = mix(base, sage, smoothstep(0.35, 0.95, f) * 0.6);',
-    '  col = mix(col, lav, smoothstep(0.25, 0.9, length(q)) * 0.38);',
-    '  col = mix(col, sand, smoothstep(0.62, 1.0, r.x) * 0.18);',
-    '  float glow = smoothstep(0.9, 0.0, distance(uv, vec2(0.5 + (u_mouse.x - 0.5) * 0.3, 0.55 + (u_mouse.y - 0.5) * 0.2)));',
-    '  col += sage * glow * 0.06;',
-    '  col = mix(col, base, smoothstep(0.65, 0.0, uv.x) * 0.55);',
-    '  col = mix(col, base, smoothstep(0.45, 0.0, uv.y) * 0.75);',
+    '  vec2 r = vec2(fbm(p + 2.6 * q + vec2(1.7, 9.2) + t * 1.4), fbm(p + 2.6 * q + vec2(8.3, 2.8) - t));',
+    '  float f = fbm(p + 2.8 * r + (u_mouse - 0.5) * 0.6);',
+    '  vec3 paper = vec3(0.949, 0.953, 0.937);',
+    '  vec3 silk  = vec3(0.880, 0.894, 0.862);',
+    '  vec3 lime  = vec3(0.749, 0.886, 0.435);',
+    '  vec3 col = mix(paper, silk, smoothstep(0.45, 0.95, f) * 0.75);',
+    '  float low = smoothstep(0.85, 0.05, uv.y);',
+    '  col = mix(col, lime, smoothstep(0.55, 1.05, length(q) + r.y * 0.35) * 0.55 * low);',
+    '  vec2 m = vec2(u_mouse.x * asp, u_mouse.y);',
+    '  float glow = smoothstep(0.55, 0.0, distance(vec2(uv.x * asp, uv.y), m));',
+    '  col = mix(col, lime, glow * 0.22);',
+    '  float headline = smoothstep(0.42, 0.0, abs(uv.x - 0.5)) * smoothstep(0.55, 0.9, uv.y);',
+    '  col = mix(col, paper, headline * 0.75);',
     '  gl_FragColor = vec4(col, 1.0);',
     '}'
   ].join('\n');
 
   var hero = {
     canvas: document.getElementById('hero-canvas'),
-    gl: null, prog: null, uRes: null, uTime: null, uMouse: null,
-    raf: null, visible: true, paused: false, t0: performance.now(), elapsed: 0, last: 0,
-    mouse: [0.5, 0.5], target: [0.5, 0.5], observer: null
+    gl: null, uRes: null, uTime: null, uMouse: null,
+    raf: null, visible: true, paused: false, elapsed: 0, last: 0,
+    mouse: [0.5, 0.35], target: [0.5, 0.35], observer: null
   };
 
   function compile(gl, type, src) {
@@ -69,7 +81,7 @@
       var loc = gl.getAttribLocation(prog, 'p');
       gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      hero.gl = gl; hero.prog = prog;
+      hero.gl = gl;
       hero.uRes = gl.getUniformLocation(prog, 'u_res');
       hero.uTime = gl.getUniformLocation(prog, 'u_time');
       hero.uMouse = gl.getUniformLocation(prog, 'u_mouse');
@@ -101,7 +113,7 @@
     heroResize();
     var gl = hero.gl;
     gl.uniform2f(hero.uRes, hero.canvas.width, hero.canvas.height);
-    gl.uniform1f(hero.uTime, hero.elapsed / 1000 + 12.0);
+    gl.uniform1f(hero.uTime, hero.elapsed / 1000 + 20.0);
     gl.uniform2f(hero.uMouse, hero.mouse[0], hero.mouse[1]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (running) hero.raf = requestAnimationFrame(heroFrame);
@@ -137,111 +149,259 @@
 
   document.addEventListener('visibilitychange', function () { if (!document.hidden) heroKick(); });
 
-  /* ---------- Cursor light ---------- */
+  /* ---------- Pointer: hero light, spotlight borders, magnetic buttons ---------- */
 
-  var glow = null, glowRaf = null, gx = -999, gy = -999;
-  function onPointer(e) {
-    gx = e.clientX; gy = e.clientY;
-    var r = hero.canvas.getBoundingClientRect();
-    if (gy >= r.top && gy <= r.bottom) hero.target = [(gx - r.left) / r.width, 1 - (gy - r.top) / r.height];
-    if (glow && !glowRaf) glowRaf = requestAnimationFrame(function () {
-      glowRaf = null;
-      glow.style.setProperty('--cx', gx + 'px');
-      glow.style.setProperty('--cy', gy + 'px');
-      glow.classList.add('is-on');
-    });
-  }
-  function onLeave() { if (glow) glow.classList.remove('is-on'); }
+  var pointerOn = false;
+  var magnets = [];
 
-  function cursorStart() {
-    if (!glow) {
-      glow = document.createElement('div');
-      glow.className = 'cursor-glow';
-      glow.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(glow);
+  function onPointerMove(e) {
+    if (!pointerOn || e.pointerType !== 'mouse') return;
+    if (hero.gl) {
+      var r = hero.canvas.getBoundingClientRect();
+      if (e.clientY >= r.top && e.clientY <= r.bottom) hero.target = [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height];
+    }
+    if (sheetOn) {
+      var hs = sheet.getBoundingClientRect();
+      if (e.clientX >= hs.left && e.clientX <= hs.right && e.clientY >= hs.top && e.clientY <= hs.bottom) {
+        sheetRY(((e.clientX - hs.left) / hs.width - 0.5) * 6);
+        sheetRX(-((e.clientY - hs.top) / hs.height - 0.5) * 4.5);
+      }
+    }
+    var spot = e.target.closest && e.target.closest('[data-spot]');
+    if (spot) {
+      var b = spot.getBoundingClientRect();
+      spot.style.setProperty('--mx', (e.clientX - b.left).toFixed(0) + 'px');
+      spot.style.setProperty('--my', (e.clientY - b.top).toFixed(0) + 'px');
+      spot.classList.add('is-lit');
     }
   }
-  function cursorStop() {
-    if (glow) { glow.parentNode.removeChild(glow); glow = null; }
+  function onPointerOut(e) {
+    var spot = e.target.closest && e.target.closest('[data-spot]');
+    if (spot && !spot.contains(e.relatedTarget)) spot.classList.remove('is-lit');
+    if (sheetOn && sheet.contains(e.target) && !(e.relatedTarget && sheet.contains(e.relatedTarget))) {
+      gsap.to(sheet, { rotationX: 0, rotationY: 0, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
+    }
   }
+  document.addEventListener('pointermove', onPointerMove, { passive: true });
+  document.addEventListener('pointerout', onPointerOut);
 
-  /* ---------- Card tilt ---------- */
-
-  var tiltOn = false;
-  function tiltMove(e) {
-    if (!tiltOn) return;
-    var card = e.target.closest('[data-tilt]');
-    if (!card) return;
-    var r = card.getBoundingClientRect();
-    var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-    card.style.setProperty('--ry', ((x - 0.5) * 10).toFixed(2) + 'deg');
-    card.style.setProperty('--rx', ((0.5 - y) * 8).toFixed(2) + 'deg');
-    var target = card.classList.contains('project') ? card.querySelector('.project__link') : card;
-    target.style.setProperty('--gx', (x * 100).toFixed(1) + '%');
-    target.style.setProperty('--gy', (y * 100).toFixed(1) + '%');
-    card.classList.add('is-tilting');
-  }
-  function tiltOut(e) {
-    var card = e.target.closest('[data-tilt]');
-    if (!card || card.contains(e.relatedTarget)) return;
-    card.classList.remove('is-tilting');
-    card.style.setProperty('--rx', '0deg');
-    card.style.setProperty('--ry', '0deg');
-  }
-  function tiltStop() {
-    tiltOn = false;
-    document.querySelectorAll('[data-tilt]').forEach(function (c) {
-      c.classList.remove('is-tilting');
-      c.style.removeProperty('--rx');
-      c.style.removeProperty('--ry');
+  function magnetsStart() {
+    magnets = Array.prototype.map.call(document.querySelectorAll('[data-magnetic]'), function (el) {
+      var xTo = gsap.quickTo(el, 'x', { duration: 0.5, ease: 'power3.out' });
+      var yTo = gsap.quickTo(el, 'y', { duration: 0.5, ease: 'power3.out' });
+      function move(e) {
+        if (e.pointerType !== 'mouse') return;
+        var r = el.getBoundingClientRect();
+        xTo((e.clientX - (r.left + r.width / 2)) * 0.28);
+        yTo((e.clientY - (r.top + r.height / 2)) * 0.36);
+      }
+      function leave() { gsap.to(el, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.4)', overwrite: true }); }
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerleave', leave);
+      return { el: el, move: move, leave: leave };
     });
   }
-  document.addEventListener('pointermove', function (e) {
-    if (e.pointerType !== 'mouse') return;
-    onPointer(e);
-    tiltMove(e);
-  }, { passive: true });
-  document.addEventListener('pointerout', tiltOut);
-  document.documentElement.addEventListener('mouseleave', onLeave);
+  /* 3D tilt. The hero sheet can rotate because it is already isolated, so the portrait blend stays inside the card. */
+  var sheet = document.querySelector('.hero__sheet');
+  var sheetRX = null, sheetRY = null, sheetOn = false;
+  var tilts = [];
 
-  /* ---------- Parallax ---------- */
-
-  var parallaxOn = false, pRaf = null;
-  var heroMedia = document.querySelector('.hero__media'), heroContent = document.querySelector('.hero__content');
-  function parallaxFrame() {
-    pRaf = null;
-    if (!parallaxOn) return;
-    var y = Math.min(window.scrollY, window.innerHeight);
-    heroMedia.style.transform = 'translate3d(0,' + (y * 0.15).toFixed(1) + 'px,0)';
-    heroContent.style.transform = 'translate3d(0,' + (y * 0.08).toFixed(1) + 'px,0)';
-    heroContent.style.opacity = String(Math.max(0.2, 1 - y / (window.innerHeight * 0.9)));
+  function sheetTiltStart() {
+    if (sheetOn) return;
+    sheetOn = true;
+    gsap.set(sheet, { transformPerspective: 1600, transformOrigin: '50% 42%' });
+    sheetRX = gsap.quickTo(sheet, 'rotationX', { duration: 0.8, ease: 'power3.out' });
+    sheetRY = gsap.quickTo(sheet, 'rotationY', { duration: 0.8, ease: 'power3.out' });
   }
-  window.addEventListener('scroll', function () { if (parallaxOn && !pRaf) pRaf = requestAnimationFrame(parallaxFrame); }, { passive: true });
-  function parallaxStop() {
-    parallaxOn = false;
-    heroMedia.style.transform = '';
-    heroContent.style.transform = '';
-    heroContent.style.opacity = '';
+  function sheetTiltStop() {
+    sheetOn = false;
+    gsap.set(sheet, { clearProps: 'transform' });
+  }
+
+  function tiltsStart() {
+    if (tilts.length) return;
+    tilts = Array.prototype.map.call(document.querySelectorAll('.stat, .project, .mini-card, .reel-banner'), function (el) {
+      gsap.set(el, { transformPerspective: 800, transformOrigin: 'center center' });
+      var rx = gsap.quickTo(el, 'rotationX', { duration: 0.5, ease: 'power3.out' });
+      var ry = gsap.quickTo(el, 'rotationY', { duration: 0.5, ease: 'power3.out' });
+      function move(e) {
+        if (e.pointerType !== 'mouse') return;
+        var b = el.getBoundingClientRect();
+        ry(((e.clientX - b.left) / b.width - 0.5) * 12);
+        rx(-((e.clientY - b.top) / b.height - 0.5) * 9);
+      }
+      function leave() { gsap.to(el, { rotationX: 0, rotationY: 0, duration: 0.7, ease: 'power3.out', overwrite: 'auto' }); }
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerleave', leave);
+      return { el: el, move: move, leave: leave };
+    });
+  }
+  function tiltsStop() {
+    tilts.forEach(function (t) {
+      t.el.removeEventListener('pointermove', t.move);
+      t.el.removeEventListener('pointerleave', t.leave);
+      gsap.set(t.el, { clearProps: 'transform' });
+    });
+    tilts = [];
+  }
+
+  function magnetsStop() {
+    magnets.forEach(function (m) {
+      m.el.removeEventListener('pointermove', m.move);
+      m.el.removeEventListener('pointerleave', m.leave);
+      gsap.set(m.el, { clearProps: 'transform' });
+    });
+    magnets = [];
+  }
+
+  /* ---------- Scroll scenes (one gsap.context so stop() reverts everything) ---------- */
+
+  var ctx = null, introPlayed = false;
+  var header = document.getElementById('site-header');
+
+  function intro() {
+    var title = document.querySelector('.hero__title.is-split');
+    if (introPlayed || !title || window.scrollY > 120) { release(); return; }
+    introPlayed = true;
+    var words = title.querySelectorAll('.w__i');
+    gsap.set(words, { yPercent: 115 });
+    gsap.set('.hero__disc', { scale: 0.55, opacity: 0 });
+    gsap.set('.hero__portrait img', { yPercent: 16, opacity: 0 });
+    gsap.set('[data-intro="aside"]', { opacity: 0, y: 18 });
+    gsap.set('[data-intro="ctas"]', { opacity: 0, y: 24 });
+    gsap.set('[data-intro="spark"]', { scale: 0, rotation: -120 });
+    release();
+
+    gsap.timeline({ defaults: { ease: EASE } })
+      .to(words, { yPercent: 0, duration: 1.15, stagger: 0.045 })
+      .to('.hero__disc', { scale: 1, opacity: 1, duration: 1.4 }, 0.2)
+      .to('.hero__portrait img', { yPercent: 0, opacity: 1, duration: 1.4 }, 0.32)
+      .to('[data-intro="spark"]', { scale: 1, rotation: 0, duration: 1.3, ease: 'back.out(2.2)', stagger: 0.12 }, 0.55)
+      .to('[data-intro="aside"]', { opacity: 1, y: 0, duration: 1, stagger: 0.1 }, 0.7)
+      .to('[data-intro="ctas"]', { opacity: 1, y: 0, duration: 1 }, 0.82);
+  }
+
+  function countFinal(el) {
+    return parseFloat(el.getAttribute('data-count')).toFixed(parseInt(el.getAttribute('data-decimals') || '0', 10));
+  }
+
+  function countUp() {
+    document.querySelectorAll('[data-count]').forEach(function (el) {
+      var target = parseFloat(el.getAttribute('data-count'));
+      var decimals = parseInt(el.getAttribute('data-decimals') || '0', 10);
+      var state = { v: 0 };
+      if (el.getBoundingClientRect().top < window.innerHeight * 0.88 && window.scrollY > 120) return;
+      el.textContent = (0).toFixed(decimals);
+      gsap.to(state, {
+        v: target, duration: 1.8, ease: 'power3.out',
+        scrollTrigger: { trigger: el, start: 'top 88%', once: true },
+        onUpdate: function () { el.textContent = state.v.toFixed(decimals); }
+      });
+    });
+  }
+
+  function buildScenes(flags) {
+    ctx = gsap.context(function () {
+      intro();
+
+      gsap.to('.hero__spark--a', { rotation: 360, duration: 40, ease: 'none', repeat: -1 });
+
+      ScrollTrigger.create({
+        start: 0, end: 'max',
+        onUpdate: function (self) {
+          var tuck = flags.navigation === 'full' && self.direction === 1 && self.scroll() > 160 && !(S.menuOpen && S.menuOpen());
+          header.classList.toggle('is-tucked', tuck);
+        }
+      });
+
+      countUp();
+
+      if (flags.parallax) {
+        // Transform the title and image themselves: a transformed ancestor of the portrait would isolate its multiply blend.
+        var heroScroll = function () { return { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true }; };
+        gsap.to('.hero__title', { y: -60, ease: 'none', scrollTrigger: heroScroll() });
+        gsap.to(['.hero__portrait img', '.hero__disc'], { y: 70, ease: 'none', scrollTrigger: heroScroll() });
+        document.querySelectorAll('[data-parallax]').forEach(function (img) {
+          gsap.fromTo(img, { yPercent: -5 }, {
+            yPercent: 5, ease: 'none',
+            scrollTrigger: { trigger: img.parentNode, start: 'top bottom', end: 'bottom top', scrub: true }
+          });
+        });
+      }
+
+      document.querySelectorAll('.stroke-draw').forEach(function (path) {
+        gsap.fromTo(path, { strokeDashoffset: 1 }, {
+          strokeDashoffset: 0, duration: 1.15, ease: 'power3.out',
+          scrollTrigger: { trigger: path.closest('.reel-banner, .video-block') || path, start: 'top 88%', once: true }
+        });
+      });
+
+      gsap.fromTo('.video-block', {
+        clipPath: 'inset(6% 7% 6% 7% round 56px)', rotationX: 12, transformPerspective: 1200, transformOrigin: 'center bottom'
+      }, {
+        clipPath: 'inset(0% 0% 0% 0% round 32px)', rotationX: 0, ease: 'none',
+        scrollTrigger: { trigger: '.video-block', start: 'top 92%', end: 'center 58%', scrub: 0.6 }
+      });
+      gsap.fromTo('.services__panel', { rotationX: 7, transformPerspective: 1400, transformOrigin: 'center top' }, {
+        rotationX: 0, ease: 'none',
+        scrollTrigger: { trigger: '.services__panel', start: 'top 95%', end: 'top 45%', scrub: true }
+      });
+
+      gsap.fromTo('#steps', { '--progress': 0 }, {
+        '--progress': 1, ease: 'none',
+        scrollTrigger: { trigger: '#steps', start: 'top 82%', end: 'bottom 62%', scrub: 0.5 }
+      });
+
+      var loop = gsap.to('.marquee__track', { xPercent: -50, ease: 'none', duration: 42, repeat: -1 });
+      ScrollTrigger.create({
+        trigger: '.marquee', start: 'top bottom', end: 'bottom top',
+        onToggle: function (self) { if (self.isActive) loop.play(); else loop.pause(); },
+        onUpdate: function (self) {
+          var boost = Math.min(5, Math.abs(self.getVelocity()) / 350);
+          gsap.timeline({ overwrite: true })
+            .to(loop, { timeScale: 1 + boost, duration: 0.25, ease: 'power2.out' })
+            .to(loop, { timeScale: 1, duration: 1.4, ease: 'power2.out' });
+        }
+      });
+    });
   }
 
   /* ---------- Public ---------- */
 
+  var started = false;
+
   S.highEffects = {
     start: function (flags) {
       var motion = root.getAttribute('data-motion') === 'full';
-      if (flags.webglScene && motion) heroStart(); else heroStop();
-      if (flags.cursorEffects && motion && finePointer.matches) cursorStart(); else cursorStop();
-      tiltOn = flags.hoverEffects === 'tilt-preview' && motion && finePointer.matches;
-      if (!tiltOn) tiltStop();
-      parallaxOn = !!flags.parallax && motion;
-      if (parallaxOn) parallaxFrame(); else parallaxStop();
+      if (!motion) { this.stop(); release(); return; }
+
+      if (flags.webglScene) heroStart(); else heroStop();
       hero.paused = S.heroPaused ? S.heroPaused() : false;
+
+      pointerOn = !!flags.cursorEffects && finePointer.matches;
+      if (pointerOn) sheetTiltStart(); else sheetTiltStop();
+      if (flags.hoverEffects === 'tilt-preview' && finePointer.matches) {
+        if (!magnets.length) magnetsStart();
+        tiltsStart();
+      } else { magnetsStop(); tiltsStop(); }
+
+      if (!started) {
+        started = true;
+        buildScenes(flags);
+        window.addEventListener('load', function () { ScrollTrigger.refresh(); }, { once: true });
+      }
     },
     stop: function () {
+      started = false;
       heroStop();
-      cursorStop();
-      tiltStop();
-      parallaxStop();
+      pointerOn = false;
+      document.querySelectorAll('[data-spot].is-lit').forEach(function (el) { el.classList.remove('is-lit'); });
+      magnetsStop();
+      tiltsStop();
+      sheetTiltStop();
+      header.classList.remove('is-tucked');
+      if (ctx) { ctx.revert(); ctx = null; }
+      document.querySelectorAll('[data-count]').forEach(function (el) { el.textContent = countFinal(el); });
     },
     setPaused: function (p) { hero.paused = p; if (!p) heroKick(); }
   };
