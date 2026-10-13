@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en" data-mode="basic" data-motion="full" data-source="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sypher Creative Solutions | Branding, Web, Multimedia and Digital Marketing</title>
+  <meta name="description" content="Sypher Creative Solutions designs brands, websites, video, and digital campaigns that turn attention into measurable growth.">
+  <meta name="theme-color" content="#0e1116">
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+  <meta property="og:title" content="Sypher Creative Solutions">
+  <meta property="og:description" content="Brands, websites, and campaigns built to perform on every device.">
+  <meta property="og:type" content="website">
+
+  <!-- Early Mode Bootstrap: sets the cached mode before first paint so returning visitors never see a flash of the wrong mode. -->
+  <script>
+    (function () {
+      var d = document.documentElement;
+      d.classList.add('js');
+      try {
+        var rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        d.setAttribute('data-motion', rm ? 'reduced' : 'full');
+        var o = localStorage.getItem('sypher.override');
+        var p = JSON.parse(localStorage.getItem('sypher.profile') || 'null');
+        var simulating = /[?&]debug=1/.test(location.search) && /[?&]sim=/.test(location.search);
+        var fresh = !simulating && p && typeof p.timestamp === 'number' && Date.now() - p.timestamp < 864e5 && sessionStorage.getItem('sypher.session') === '1';
+        if (fresh) {
+          var manual = o === 'high' || o === 'medium' || o === 'basic';
+          d.setAttribute('data-mode', manual ? o : String(p['class']).toLowerCase());
+          d.setAttribute('data-source', manual ? 'manual' : 'auto');
+          d.setAttribute('data-adaptive-state', 'cached');
+        } else {
+          d.setAttribute('data-adaptive-state', 'analyzing');
+        }
+      } catch (e) {
+        d.setAttribute('data-adaptive-state', 'analyzing');
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="css/base.css">
+  <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"Organization","name":"Sypher Creative Solutions","url":"https://example.com","description":"Digital marketing and web design company."}
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- Analysis Screen -->
+  <div class="analysis" id="analysis" aria-labelledby="analysis-title">
+    <div class="analysis__card">
+      <div class="analysis__visual" aria-hidden="true">
+        <canvas class="analysis__bench" id="bench-canvas"></canvas>
+        <span class="analysis__logo">
+          <svg viewBox="0 0 40 40" width="34" height="34"><path d="M28 9H16a7 7 0 0 0 0 14h8a4 4 0 0 1 0 8H11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+      <p class="analysis__title" id="analysis-title" aria-live="polite">Analyzing Device Performance&hellip;</p>
+      <p class="analysis__help">This takes about 2 seconds.</p>
+      <div class="progress" role="progressbar" aria-label="Analysis progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0 percent">
+        <span class="progress__bar" id="analysis-bar"></span>
+      </div>
+      <p class="analysis__step" id="analysis-step">Checking your device</p>
+      <button type="button" class="btn btn--ghost analysis__skip" id="analysis-skip">Skip</button>
+    </div>
+  </div>
+
+  <header class="site-header" id="site-header">
+    <div class="container site-header__inner">
+      <a class="logo" href="#main" aria-label="Sypher Creative Solutions, home">
+        <svg viewBox="0 0 40 40" width="28" height="28" aria-hidden="true"><path d="M28 9H16a7 7 0 0 0 0 14h8a4 4 0 0 1 0 8H11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        <span>Sypher</span>
+      </a>
+
+      <nav class="nav" id="primary-nav" aria-label="Primary">
+        <ul class="nav__list">
+          <li><a href="#services">Services</a></li>
+          <li><a href="#work">Work</a></li>
+          <li><a href="#showreel">Showreel</a></li>
+          <li><a href="#process">Process</a></li>
+          <li><a href="#testimonials">Clients</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+
+      <div class="site-header__actions">
+        <button type="button" class="chip" id="perf-chip" aria-expanded="false" aria-controls="dashboard">
+          <svg class="chip__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 16l4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span class="chip__label" id="chip-label">Basic &middot; Auto</span>
+        </button>
+        <a class="btn btn--primary site-header__cta" href="#contact">Start a project</a>
+        <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="primary-nav">
+          <span class="sr-only" id="menu-btn-label">Open menu</span>
+          <span class="menu-btn__bars" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="result-banner" id="result-banner" role="status" aria-live="polite" hidden></div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-relevant="additions"></div>
+
+  <main id="main" tabindex="-1">
+    <!-- Hero -->
+    <section class="hero" id="hero" aria-labelledby="hero-title">
+      <div class="hero__media" aria-hidden="true">
+        <div class="hero__static"></div>
+        <div class="hero__gradient"></div>
+        <canvas class="hero__canvas" id="hero-canvas"></canvas>
+        <div class="hero__grain"></div>
+      </div>
+      <div class="container hero__content">
+        <p class="eyebrow">Branding &middot; Web &middot; Multimedia &middot; Digital Marketing</p>
+        <h1 class="hero__title" id="hero-title" data-split>We design brands that move people and grow business.</h1>
+        <p class="hero__lead">Sypher Creative Solutions is a digital marketing and web design studio. We pair careful craft with measurable results, and we build sites that feel great on every device.</p>
+        <div class="hero__ctas">
+          <a class="btn btn--primary" href="#contact">Start a project</a>
+          <a class="btn btn--ghost" href="#work">View our work</a>
+        </div>
+        <dl class="hero__stats">
+          <div><dt>Projects shipped</dt><dd>140+</dd></div>
+          <div><dt>Avg. lead uplift</dt><dd>+38%</dd></div>
+          <div><dt>Years in business</dt><dd>9</dd></div>
+        </dl>
+      </div>
+      <button type="button" class="media-pause" id="hero-pause" aria-pressed="false" hidden>
+        <span class="media-pause__icon" aria-hidden="true"></span>
+        <span class="media-pause__text">Pause background animation</span>
+      </button>
+    </section>
+
+    <!-- Services -->
+    <section class="section services" id="services" aria-labelledby="services-title">
+      <div class="services__ambient" aria-hidden="true"></div>
+      <div class="container">
+        <header class="section__head reveal">
+          <p class="eyebrow">What we do</p>
+          <h2 id="services-title">Four disciplines, one team</h2>
+          <p class="section__lead">Every engagement is led by a single strategist so brand, product, and campaign speak with one voice.</p>
+        </header>
+        <ul class="cards cards--4" role="list">
+          <li class="card service reveal" data-tilt>
+            <span class="service__icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="14" class="ico-stroke"/><path d="M24 10v28M10 24h28" class="ico-stroke ico-draw"/></svg>
+            </span>
+            <h3>Branding</h3>
+            <p>Positioning, naming, identity systems, and guidelines that keep every touchpoint consistent.</p>
+            <ul class="service__list"><li>Brand strategy</li><li>Visual identity</li><li>Brand guidelines</li></ul>
+            <a class="link-arrow" href="#work" data-filter-link="branding">See related work</a>
+          </li>
+          <li class="card service reveal" data-tilt>
+            <span class="service__icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><rect x="8" y="11" width="32" height="24" rx="3" class="ico-stroke"/><path d="M16 41h16M18 21l-4 3 4 3M30 21l4 3-4 3" class="ico-stroke ico-draw"/></svg>
+            </span>
+            <h3>Web Development</h3>
+            <p>Fast, accessible websites and web apps that adapt to the visitor&rsquo;s device and convert.</p>
+            <ul class="service__list"><li>UX and UI design</li><li>Front-end builds</li><li>CMS and e-commerce</li></ul>
+            <a class="link-arrow" href="#work" data-filter-link="web">See related work</a>
+          </li>
+          <li class="card service reveal" data-tilt>
+            <span class="service__icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="24" rx="3" class="ico-stroke"/><path d="M21 19l9 5-9 5z" class="ico-stroke ico-draw"/></svg>
+            </span>
+            <h3>Multimedia</h3>
+            <p>Brand films, motion design, and photography produced for every screen and bandwidth.</p>
+            <ul class="service__list"><li>Video production</li><li>Motion graphics</li><li>Photography</li></ul>
+            <a class="link-arrow" href="#work" data-filter-link="multimedia">See related work</a>
+          </li>
+          <li class="card service reveal" data-tilt>
+            <span class="service__icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><path d="M8 36l10-10 7 7 15-17" class="ico-stroke ico-draw"/><path d="M32 16h8v8" class="ico-stroke"/></svg>
+            </span>
+            <h3>Digital Marketing</h3>
+            <p>Search, social, and paid campaigns measured against the numbers that matter to you.</p>
+            <ul class="service__list"><li>SEO and content</li><li>Paid social and search</li><li>Analytics and CRO</li></ul>
+            <a class="link-arrow" href="#work" data-filter-link="marketing">See related work</a>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Portfolio -->
+    <section class="section work" id="work" aria-labelledby="work-title">
+      <div class="container">
+        <header class="section__head reveal">
+          <p class="eyebrow">Selected work</p>
+          <h2 id="work-title">Results, not just visuals</h2>
+        </header>
+
+        <div class="filters" role="group" aria-label="Filter projects by category">
+          <a class="filter is-active" href="?category=all#work" data-filter="all" aria-pressed="true">All</a>
+          <a class="filter" href="?category=branding#work" data-filter="branding" aria-pressed="false">Branding</a>
+          <a class="filter" href="?category=web#work" data-filter="web" aria-pressed="false">Web</a>
+          <a class="filter" href="?category=multimedia#work" data-filter="multimedia" aria-pressed="false">Multimedia</a>
+          <a class="filter" href="?category=marketing#work" data-filter="marketing" aria-pressed="false">Marketing</a>
+        </div>
+        <p class="sr-only" id="filter-status" aria-live="polite"></p>
+
+        <ul class="cards cards--3 portfolio" role="list" id="portfolio">
+          <li class="project reveal" data-category="web" data-tilt>
+            <a class="project__link" href="#contact">
+              <span class="project__art art-1" role="img" aria-label="Homepage design for Lumen Coffee shown on a laptop"></span>
+              <span class="project__meta">
+                <span class="project__client">Lumen Coffee</span>
+                <span class="project__title">E-commerce relaunch</span>
+                <span class="project__result">+38% online orders in 90 days</span>
+              </span>
+            </a>
+          </li>
+          <li class="project reveal" data-category="branding" data-tilt>
+            <a class="project__link" href="#contact">
+              <span class="project__art art-2" role="img" aria-label="Northwind Legal identity system on stationery"></span>
+              <span class="project__meta">
+                <span class="project__client">Northwind Legal</span>
+                <span class="project__title">Identity system</span>
+                <span class="project__result">2x inbound consultations</span>
+              </span>
+            </a>
+          </li>
+          <li class="project reveal" data-category="multimedia" data-tilt>
+            <a class="project__link" href="#contact">
+              <span class="project__art art-3" role="img" aria-label="Frame from the Atlas Outdoor brand film"></span>
+              <span class="project__meta">
+                <span class="project__client">Atlas Outdoor</span>
+                <span class="project__title">Brand film</span>
+                <span class="project__result">1.2M organic views</span>
+              </span>
+            </a>
+          </li>
+          <li class="project reveal" data-category="marketing" data-tilt>
+            <a class="project__link" href="#contact">
+              <span class="project__art art-4" role="img" aria-label="Campaign dashboard for Verde Clinics"></span>
+              <span class="project__meta">
+                <span class="project__client">Verde Clinics</span>
+                <span class="project__title">Paid search program</span>
+                <span class="project__result">-41% cost per booking</span>
+              </span>
+            </a>
+          </li>
+          <li class="project reveal" data-category="web" data-tilt>
+            <a class="project__link" href="#contact">
+              <span class="project__art art-5" role="img" aria-label="Mobile app screens for Harbor Finance"></span>
+              <span class="project__meta">
+                <span class="project__client">Harbor Finance</span>
+                <span class="project__title">Customer portal</span>
+                <span class="project__result">4.8 app store rating</span>
+              </span>
+            </a>
+          </li>
+          <li class="project reveal" data-category="branding" data-tilt>
+            <a class="project__link" href="#contact">
+              <span class="project__art art-6" role="img" aria-label="Packaging range for Kiln Ceramics"></span>
+              <span class="project__meta">
+                <span class="project__client">Kiln Ceramics</span>
+                <span class="project__title">Packaging and identity</span>
+                <span class="project__result">Stocked in 60 new retailers</span>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Showreel / promotional video -->
+    <section class="section showreel" id="showreel" aria-labelledby="showreel-title">
+      <div class="container">
+        <header class="section__head reveal">
+          <p class="eyebrow">Showreel</p>
+          <h2 id="showreel-title">Two minutes of what we make</h2>
+          <p class="section__lead">A look at recent brand films, motion work, and launches. Captions and a full transcript are available.</p>
+        </header>
+        <div class="video-block reveal" id="video-block">
+          <div class="video-block__poster" role="img" aria-label="Showreel poster: a montage of Sypher brand work">
+            <span class="video-block__shine" aria-hidden="true"></span>
+          </div>
+          <button type="button" class="video-block__play" id="video-play">
+            <span class="video-block__play-icon" aria-hidden="true"></span>
+            <span class="video-block__play-text">Watch video (2:14)</span>
+          </button>
+          <div class="video-block__player" id="video-player" hidden>
+            <video controls preload="none" playsinline width="1280" height="720" poster="">
+              <source src="assets/video/showreel.webm" type="video/webm">
+              <source src="assets/video/showreel.mp4" type="video/mp4">
+              <track kind="captions" src="assets/video/showreel.en.vtt" srclang="en" label="English" default>
+            </video>
+            <p class="video-block__missing" hidden>Sample build: add <code>assets/video/showreel.mp4</code> to play the real showreel. The transcript below covers the full content.</p>
+          </div>
+        </div>
+        <details class="transcript">
+          <summary>Read transcript</summary>
+          <p>[Music] At Sypher, every project starts with a question: what should people feel, and what should they do next? We have built identities for law firms and coffee roasters, launched e-commerce stores, and filmed brand stories in the mountains. Whatever the medium, we measure success the same way: by results our clients can see.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- Process -->
+    <section class="section process" id="process" aria-labelledby="process-title">
+      <div class="container">
+        <header class="section__head reveal">
+          <p class="eyebrow">How a project runs</p>
+          <h2 id="process-title">Clear steps, no surprises</h2>
+        </header>
+        <ol class="steps" role="list">
+          <li class="step reveal"><span class="step__num">01</span><h3>Discover</h3><p>One workshop to agree on goals, audience, and the numbers we will move. 1 to 2 weeks.</p></li>
+          <li class="step reveal"><span class="step__num">02</span><h3>Design</h3><p>Concepts, prototypes, and copy reviewed with you every week. 2 to 4 weeks.</p></li>
+          <li class="step reveal"><span class="step__num">03</span><h3>Build</h3><p>Accessible, adaptive builds tested on high-end and low-power devices. 3 to 6 weeks.</p></li>
+          <li class="step reveal"><span class="step__num">04</span><h3>Grow</h3><p>Launch, measure, and optimize with monthly reporting. Ongoing.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="section testimonials" id="testimonials" aria-labelledby="testimonials-title">
+      <div class="container">
+        <header class="section__head reveal">
+          <p class="eyebrow">Client voices</p>
+          <h2 id="testimonials-title">Trusted by teams who measure</h2>
+        </header>
+        <div class="tm" id="tm" data-variant="static-list" aria-label="Client testimonials">
+          <div class="tm__viewport">
+            <ul class="tm__track" role="list" id="tm-track">
+              <li class="tm__item" aria-label="Testimonial 1 of 4">
+                <blockquote><p>&ldquo;Sypher rebuilt our store and our orders went up within a month. The site is fast even on our customers&rsquo; older phones.&rdquo;</p></blockquote>
+                <p class="tm__who"><span class="avatar" aria-hidden="true">MR</span><span><strong>Maya Reyes</strong><br>Founder, Lumen Coffee</span></p>
+              </li>
+              <li class="tm__item" aria-label="Testimonial 2 of 4">
+                <blockquote><p>&ldquo;They found the voice we had been missing for years. Clients now tell us our brand feels like us.&rdquo;</p></blockquote>
+                <p class="tm__who"><span class="avatar" aria-hidden="true">DO</span><span><strong>Daniel Okafor</strong><br>Managing Partner, Northwind Legal</span></p>
+              </li>
+              <li class="tm__item" aria-label="Testimonial 3 of 4">
+                <blockquote><p>&ldquo;The brand film is the best-performing content we have ever published. The process was calm and well run.&rdquo;</p></blockquote>
+                <p class="tm__who"><span class="avatar" aria-hidden="true">LS</span><span><strong>Lena Strand</strong><br>Marketing Director, Atlas Outdoor</span></p>
+              </li>
+              <li class="tm__item" aria-label="Testimonial 4 of 4">
+                <blockquote><p>&ldquo;Every month we see exactly what our budget did. Cost per booking dropped and stayed down.&rdquo;</p></blockquote>
+                <p class="tm__who"><span class="avatar" aria-hidden="true">AK</span><span><strong>Arun Kapoor</strong><br>Head of Growth, Verde Clinics</span></p>
+              </li>
+            </ul>
+          </div>
+          <div class="tm__controls" id="tm-controls" hidden>
+            <button type="button" class="icon-btn" id="tm-prev" aria-label="Previous testimonial">&#8592;</button>
+            <div class="tm__dots" id="tm-dots" role="group" aria-label="Choose testimonial"></div>
+            <button type="button" class="icon-btn" id="tm-next" aria-label="Next testimonial">&#8594;</button>
+            <button type="button" class="icon-btn" id="tm-pause" aria-label="Pause testimonials" hidden>&#10074;&#10074;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact -->
+    <section class="section contact" id="contact" aria-labelledby="contact-title">
+      <div class="container contact__grid">
+        <div class="contact__form-wrap reveal">
+          <p class="eyebrow">Start a project</p>
+          <h2 id="contact-title">Tell us what you want to move</h2>
+          <form class="form" id="contact-form" action="#" method="post" novalidate>
+            <div class="field">
+              <label for="f-name">Name</label>
+              <input id="f-name" name="name" type="text" autocomplete="name" required aria-describedby="f-name-err">
+              <p class="field__err" id="f-name-err"></p>
+            </div>
+            <div class="field">
+              <label for="f-email">Email</label>
+              <input id="f-email" name="email" type="email" autocomplete="email" required aria-describedby="f-email-err">
+              <p class="field__err" id="f-email-err"></p>
+            </div>
+            <div class="field field--row">
+              <div>
+                <label for="f-service">Service (optional)</label>
+                <select id="f-service" name="service">
+                  <option value="">Not sure yet</option><option>Branding</option><option>Web Development</option><option>Multimedia</option><option>Digital Marketing</option>
+                </select>
+              </div>
+              <div>
+                <label for="f-budget">Budget (optional)</label>
+                <select id="f-budget" name="budget">
+                  <option value="">Prefer not to say</option><option>Under $5k</option><option>$5k to $15k</option><option>$15k to $50k</option><option>$50k+</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="f-msg">Message</label>
+              <textarea id="f-msg" name="message" rows="4" required aria-describedby="f-msg-err"></textarea>
+              <p class="field__err" id="f-msg-err"></p>
+            </div>
+            <div class="form__foot">
+              <button class="btn btn--primary" type="submit">Send message</button>
+              <p class="form__promise">We reply within 1 business day.</p>
+            </div>
+            <p class="form__status" id="form-status" aria-live="polite"></p>
+          </form>
+        </div>
+        <aside class="contact__details reveal" aria-label="Contact details">
+          <h3>Studio</h3>
+          <p>hello@sypher.example<br>+63 2 8123 4567</p>
+          <h3>Location</h3>
+          <p>Unit 12, Creative Hub<br>Makati City, Metro Manila</p>
+          <h3>Hours</h3>
+          <p>Monday to Friday, 9:00 to 18:00</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__grid">
+      <div>
+        <a class="logo" href="#main"><svg viewBox="0 0 40 40" width="24" height="24" aria-hidden="true"><path d="M28 9H16a7 7 0 0 0 0 14h8a4 4 0 0 1 0 8H11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span>Sypher</span></a>
+        <p class="muted">Brands, websites, and campaigns built to perform on every device.</p>
+      </div>
+      <nav aria-label="Footer">
+        <ul class="footer-links">
+          <li><a href="#services">Services</a></li>
+          <li><a href="#work">Work</a></li>
+          <li><a href="#testimonials">Clients</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+      <div>
+        <button type="button" class="link-btn" id="footer-mode">Display mode: Basic (Auto)</button>
+        <p class="muted small">&copy; <span id="year">2026</span> Sypher Creative Solutions</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Performance Dashboard -->
+  <div class="dash-backdrop" id="dash-backdrop" hidden></div>
+  <aside class="dashboard" id="dashboard" aria-labelledby="dash-title" hidden>
+    <div class="dashboard__head">
+      <h2 id="dash-title" tabindex="-1">Performance</h2>
+      <button type="button" class="icon-btn" id="dash-close" aria-label="Close performance dashboard">&times;</button>
+    </div>
+
+    <div class="dashboard__body">
+      <fieldset class="override" id="override">
+        <legend>Display mode</legend>
+        <div class="override__options" role="radiogroup" aria-label="Display mode">
+          <label class="opt"><input type="radio" name="mode" value="auto"><span class="opt__box"><span class="opt__name">Auto <em>(recommended)</em></span><span class="opt__desc" id="opt-auto-desc">Chosen for this device</span></span></label>
+          <label class="opt"><input type="radio" name="mode" value="high"><span class="opt__box"><span class="opt__name">High <em>Fully animated</em></span><span class="opt__desc">WebGL backgrounds, rich effects</span></span></label>
+          <label class="opt"><input type="radio" name="mode" value="medium"><span class="opt__box"><span class="opt__name">Medium <em>Balanced</em></span><span class="opt__desc">Lighter effects, faster loading</span></span></label>
+          <label class="opt"><input type="radio" name="mode" value="basic"><span class="opt__box"><span class="opt__name">Basic <em>Smoothest</em></span><span class="opt__desc">Static design, fastest loading</span></span></label>
+        </div>
+        <div class="inline-warn" id="override-warn" hidden tabindex="-1">
+          <p class="inline-warn__title">This may slow down your device.</p>
+          <p class="inline-warn__body">Your device was detected as BASIC. High mode loads animations and effects that may cause slow scrolling, heat, or battery drain.</p>
+          <div class="inline-warn__actions">
+            <button type="button" class="btn btn--primary btn--sm" id="warn-confirm">Use High anyway</button>
+            <button type="button" class="btn btn--ghost btn--sm" id="warn-cancel">Keep current mode</button>
+          </div>
+        </div>
+        <p class="override__note" id="override-rm" hidden>Animations are off because your device&rsquo;s reduce-motion setting is on.</p>
+        <button type="button" class="link-btn" id="override-reset" hidden>Reset to Auto</button>
+      </fieldset>
+
+      <div class="dash-summary">
+        <div class="gauge" aria-hidden="true">
+          <svg viewBox="0 0 120 70"><path class="gauge__track" d="M10 65a50 50 0 0 1 100 0"/><path class="gauge__value" id="gauge-value" d="M10 65a50 50 0 0 1 100 0"/></svg>
+          <span class="gauge__num" id="gauge-num">&ndash;</span>
+        </div>
+        <dl class="kv kv--summary">
+          <div><dt>Selected Mode</dt><dd id="d-mode" aria-live="polite">&ndash;</dd></div>
+          <div id="d-diff-row" hidden><dt>Detected vs used</dt><dd id="d-diff"></dd></div>
+          <div><dt>Performance Score</dt><dd id="d-score">&ndash;</dd></div>
+        </dl>
+      </div>
+      <p class="why" id="d-why"></p>
+
+      <dl class="kv" id="d-signals">
+        <div><dt>CPU Threads</dt><dd id="d-cpu">Measuring&hellip;</dd></div>
+        <div><dt>Available Device Memory</dt><dd id="d-mem">Measuring&hellip;</dd></div>
+        <div><dt>Screen Resolution</dt><dd id="d-screen">Measuring&hellip;</dd></div>
+        <div><dt>Frame rate test</dt><dd id="d-fps">Measuring&hellip;</dd></div>
+        <div><dt>Graphics support</dt><dd id="d-gl">Measuring&hellip;</dd></div>
+        <div><dt>Reduced motion</dt><dd id="d-rm">&ndash;</dd></div>
+        <div><dt>Adjustments applied</dt><dd id="d-caps">&ndash;</dd></div>
+        <div><dt>Detection source</dt><dd id="d-src">&ndash;</dd></div>
+        <div><dt>Detected at</dt><dd id="d-time">&ndash;</dd></div>
+      </dl>
+
+      <details class="breakdown">
+        <summary>Score breakdown</summary>
+        <ul class="bars" id="d-bars" role="list"></ul>
+        <p class="muted small" id="d-rescale"></p>
+      </details>
+
+      <div class="dashboard__actions">
+        <button type="button" class="btn btn--ghost btn--sm" id="d-rerun">Re-run detection</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="d-save" hidden>Save test result</button>
+      </div>
+    </div>
+  </aside>
+
+  <noscript><style>.analysis{display:none!important}</style></noscript>
+
+  <script src="js/config.js" defer></script>
+  <script src="js/copy.js" defer></script>
+  <script src="js/storage.js" defer></script>
+  <script src="js/detect.js" defer></script>
+  <script src="js/score.js" defer></script>
+  <script src="js/classify.js" defer></script>
+  <script src="js/api-client.js" defer></script>
+  <script src="js/controller.js" defer></script>
+  <script src="js/ui-analysis.js" defer></script>
+  <script src="js/ui-notices.js" defer></script>
+  <script src="js/ui-dashboard.js" defer></script>
+  <script src="js/ui-override.js" defer></script>
+  <script src="js/site.js" defer></script>
+  <script src="js/main.js" defer></script>
+</body>
+</html>

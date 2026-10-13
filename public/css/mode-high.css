@@ -1,0 +1,131 @@
+/* mode-high.css: loaded for HIGH only. Rich motion; every animation is transform/opacity and stops under data-motion="reduced". */
+
+html[data-mode="high"] { --dur-fast: 150ms; --dur-base: 250ms; --dur-slow: 400ms; }
+
+/* Hero: WebGL flow field fades in once the scene is live */
+html[data-mode="high"] .hero__canvas { transition: opacity 900ms ease; }
+html[data-mode="high"] .hero__canvas.is-live { opacity: 1; }
+html[data-mode="high"] .hero__grain {
+  opacity: 0.06; mix-blend-mode: overlay; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+html[data-mode="high"] .hero__content { will-change: transform; }
+
+/* Headline: word-by-word reveal, once */
+.hero__title .w { display: inline-block; white-space: pre; }
+html[data-mode="high"][data-motion="full"] .hero__title.is-split .w {
+  opacity: 0; transform: translateY(0.45em); filter: blur(6px);
+  animation: wordIn 700ms var(--ease) forwards;
+  animation-delay: calc(var(--i) * 55ms + 120ms);
+}
+@keyframes wordIn { to { opacity: 1; transform: none; filter: blur(0); } }
+
+/* Scroll-linked reveals with stagger */
+html[data-mode="high"][data-motion="full"] .reveal.is-pending { opacity: 0; transform: translateY(24px); }
+html[data-mode="high"][data-motion="full"] .reveal.is-revealed {
+  opacity: 1; transform: none;
+  transition: opacity 600ms var(--ease), transform 700ms var(--ease);
+  transition-delay: calc(var(--stagger, 0) * 60ms);
+}
+
+/* Header hides on scroll down, shows on scroll up */
+html[data-mode="high"][data-motion="full"] .site-header { transition: transform 250ms var(--ease); }
+html[data-mode="high"][data-motion="full"] .site-header.is-tucked { transform: translateY(-100%); }
+
+/* Services: ambient light behind the band */
+html[data-mode="high"] .services__ambient {
+  opacity: 1;
+  background:
+    radial-gradient(30% 50% at 20% 30%, rgba(168, 158, 200, 0.14), transparent 70%),
+    radial-gradient(30% 50% at 80% 70%, rgba(134, 172, 167, 0.14), transparent 70%);
+}
+html[data-mode="high"][data-motion="full"] .services__ambient { animation: ambient 24s ease-in-out infinite alternate; }
+@keyframes ambient {
+  0% { transform: translate3d(-6%, 0, 0) rotate(0deg) scale(1); }
+  100% { transform: translate3d(6%, 4%, 0) rotate(8deg) scale(1.15); }
+}
+
+/* Animated SVG icons: draw once on reveal */
+html[data-mode="high"][data-motion="full"] .service.is-revealed .ico-draw,
+html[data-mode="high"][data-motion="full"] .service.is-done .ico-draw {
+  stroke-dasharray: 120; stroke-dashoffset: 120;
+  animation: draw 1200ms var(--ease) 250ms forwards;
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* Card tilt and glare (JS sets --rx, --ry, --gx, --gy) */
+html[data-mode="high"] .card[data-tilt].is-done, html[data-mode="high"] .card[data-tilt]:not(.is-pending):not(.is-revealed),
+html[data-mode="high"] .project[data-tilt] .project__link {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 300ms var(--ease), border-color var(--dur-fast), box-shadow var(--dur-base);
+}
+html[data-mode="high"] .card[data-tilt].is-tilting, html[data-mode="high"] .project[data-tilt].is-tilting .project__link { transition: transform 80ms linear, border-color var(--dur-fast); }
+html[data-mode="high"] .card[data-tilt]::before, html[data-mode="high"] .project[data-tilt] .project__link::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  background: radial-gradient(260px circle at var(--gx, 50%) var(--gy, 50%), rgba(228, 231, 236, 0.07), transparent 60%);
+  opacity: 0; transition: opacity var(--dur-base);
+}
+html[data-mode="high"] .project__link { position: relative; }
+html[data-mode="high"] [data-tilt].is-tilting::before, html[data-mode="high"] .project[data-tilt].is-tilting .project__link::before { opacity: 1; }
+html[data-mode="high"] .card:hover, html[data-mode="high"] .project__link:hover { border-color: var(--line); box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45); }
+
+/* Portfolio hover preview: slow pan of the artwork */
+html[data-mode="high"] .project__art { transition: transform 900ms var(--ease); }
+html[data-mode="high"] .project__link:hover .project__art,
+html[data-mode="high"] .project__link:focus-visible .project__art { transform: scale(1.06); }
+html[data-mode="high"][data-motion="full"] .project__link:hover .project__art::before,
+html[data-mode="high"][data-motion="full"] .project__link:focus-visible .project__art::before {
+  content: ""; position: absolute; inset: -40%; z-index: 1;
+  background: conic-gradient(from 0deg, transparent, rgba(168, 158, 200, 0.18), transparent 30%);
+  animation: spin 6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(1turn); } }
+
+/* Cursor-follow light (pointer: fine only, added by JS) */
+.cursor-glow {
+  position: fixed; left: 0; top: 0; width: 420px; height: 420px; margin: -210px 0 0 -210px;
+  border-radius: 50%; pointer-events: none; z-index: 1;
+  background: radial-gradient(circle, rgba(134, 172, 167, 0.09), transparent 65%);
+  transform: translate3d(var(--cx, -999px), var(--cy, -999px), 0);
+  opacity: 0; transition: opacity 400ms ease;
+}
+.cursor-glow.is-on { opacity: 1; }
+html[data-motion="reduced"] .cursor-glow { display: none; }
+
+/* Video: in-view muted preview stand-in (slow pan plus light sweep) */
+html[data-mode="high"][data-motion="full"] .video-block.is-inview .video-block__poster { animation: kenburns 14s ease-in-out infinite alternate; }
+html[data-mode="high"][data-motion="full"] .video-block.is-inview .video-block__shine {
+  opacity: 1;
+  background: linear-gradient(105deg, transparent 35%, rgba(228, 231, 236, 0.07) 50%, transparent 65%);
+  animation: sweep 5s ease-in-out infinite;
+}
+@keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.08) translate3d(-2%, -1%, 0); } }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* Carousel slide */
+html[data-mode="high"] .tm[data-variant="carousel"] .tm__track { transition: transform 600ms var(--ease); }
+html[data-mode="high"] .tm[data-variant="carousel"] .tm__item { transition: opacity 600ms ease; opacity: 0.35; }
+html[data-mode="high"] .tm[data-variant="carousel"] .tm__item.is-current { opacity: 1; }
+
+/* Messages and panels */
+html[data-mode="high"][data-motion="full"] .result-banner { animation: dropIn 350ms var(--ease) both; }
+@keyframes dropIn { from { opacity: 0; transform: translate(-50%, -16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+html[data-mode="high"][data-motion="full"] .toast { animation: riseIn 250ms var(--ease) both; }
+@keyframes riseIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (min-width: 1024px) {
+  html[data-mode="high"][data-motion="full"] .dashboard:not([hidden]) { animation: slideIn 280ms var(--ease) both; }
+}
+@keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Chip gauge nudge on mode change */
+html[data-mode="high"][data-motion="full"] .chip.is-bump .chip__icon { animation: bump 500ms var(--ease); }
+@keyframes bump { 40% { transform: rotate(-25deg) scale(1.15); } }
+
+/* Process numbers get a soft gradient ink */
+html[data-mode="high"] .step__num {
+  background: linear-gradient(120deg, var(--accent-2), var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* View transitions: soft cross-fade when switching modes */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 350ms; }

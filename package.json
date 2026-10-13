@@ -1,0 +1,12 @@
+{
+  "name": "sypher-adaptive-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sypher Creative Solutions: Adaptive Web Experience System sample (plain HTML, CSS, JS, and a zero-dependency Node API).",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

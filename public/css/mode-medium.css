@@ -1,0 +1,75 @@
+/* mode-medium.css: loaded for MEDIUM and HIGH. Light, CSS-only enhancements (transform and opacity only). */
+
+html[data-mode="medium"], html[data-mode="high"] {
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 300ms;
+}
+
+html[data-mode="medium"] h1, html[data-mode="high"] h1,
+html[data-mode="medium"] h2, html[data-mode="high"] h2 { font-weight: 500; letter-spacing: -0.015em; }
+
+html[data-mode="medium"][data-motion="full"], html[data-mode="high"][data-motion="full"] { scroll-behavior: smooth; }
+
+/* Header glass */
+html[data-mode="medium"] .site-header, html[data-mode="high"] .site-header {
+  background: rgba(14, 17, 22, 0.72);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+html[data-mode="medium"] .nav__list a, html[data-mode="high"] .nav__list a { position: relative; transition: color var(--dur-fast); }
+html[data-mode="medium"] .nav__list a:hover, html[data-mode="high"] .nav__list a:hover { text-decoration: none; }
+html[data-mode="medium"] .nav__list a::after, html[data-mode="high"] .nav__list a::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: 8px; height: 1px; background: var(--accent);
+  transform: scaleX(0); transform-origin: left; transition: transform var(--dur-base) var(--ease);
+}
+html[data-mode="medium"] .nav__list a:hover::after, html[data-mode="high"] .nav__list a:hover::after { transform: scaleX(1); }
+
+/* Hero: slow CSS-only gradient drift */
+html[data-mode="medium"] .hero__gradient {
+  opacity: 1;
+  background:
+    radial-gradient(45% 55% at 30% 30%, rgba(168, 158, 200, 0.22), transparent 70%),
+    radial-gradient(45% 55% at 70% 70%, rgba(134, 172, 167, 0.22), transparent 70%);
+  background-size: 140% 140%;
+}
+html[data-mode="medium"][data-motion="full"] .hero__gradient { animation: drift 20s ease-in-out infinite alternate; }
+html[data-mode="medium"].is-paused .hero__gradient { animation-play-state: paused; }
+@keyframes drift {
+  0% { transform: translate3d(-4%, -2%, 0) scale(1); }
+  100% { transform: translate3d(4%, 3%, 0) scale(1.08); }
+}
+
+/* Single fade-in per section */
+html[data-motion="full"] .reveal.is-pending { opacity: 0; }
+html[data-motion="full"] .reveal.is-revealed { opacity: 1; transition: opacity var(--dur-slow) ease; }
+
+/* Headline fade */
+html[data-mode="medium"][data-motion="full"] .hero__title { animation: fadeIn 300ms ease both; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Hover: simple lift */
+html[data-mode="medium"] .card, html[data-mode="medium"] .project__link {
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+html[data-mode="medium"] .card:hover, html[data-mode="medium"] .project__link:hover,
+html[data-mode="medium"] .project__link:focus-visible {
+  transform: translateY(-4px); border-color: var(--line); box-shadow: var(--shadow);
+}
+html[data-mode="medium"] .btn--primary:hover, html[data-mode="high"] .btn--primary:hover { transform: translateY(-1px); }
+html[data-mode="medium"] .btn:active, html[data-mode="high"] .btn:active { transform: scale(0.97); }
+
+/* Testimonials slider */
+.tm[data-variant="simple-slider"] .tm__track, .tm[data-variant="carousel"] .tm__track { transition: transform var(--dur-base) var(--ease); }
+
+/* Panels and messages */
+html[data-mode="medium"] .dashboard:not([hidden]), html[data-mode="high"] .dashboard:not([hidden]) { animation: fadeIn var(--dur-fast) ease both; }
+html[data-mode="medium"] .toast, html[data-mode="medium"] .result-banner { animation: fadeIn var(--dur-base) ease both; }
+html[data-mode="medium"] .progress__bar, html[data-mode="high"] .progress__bar { transition: width 180ms linear; }
+html[data-mode="medium"] .gauge__value, html[data-mode="high"] .gauge__value { transition: stroke-dashoffset 600ms var(--ease); }
+html[data-mode="medium"] .bars__fill, html[data-mode="high"] .bars__fill { transition: width 500ms var(--ease); }
+
+/* Video poster: click-to-play, subtle hover */
+html[data-mode="medium"] .video-block__play, html[data-mode="high"] .video-block__play { transition: transform var(--dur-fast) var(--ease), background-color var(--dur-fast); }
+html[data-mode="medium"] .video-block__play:hover, html[data-mode="high"] .video-block__play:hover { transform: translate(-50%, -50%) scale(1.04); background: rgba(14, 17, 22, 0.9); }
