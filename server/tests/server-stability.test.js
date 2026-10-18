@@ -18,6 +18,9 @@ function listen(server) {
 
 function close(server) {
   return new Promise((resolve, reject) => {
+    if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+    }
     server.close((err) => (err ? reject(err) : resolve()));
   });
 }

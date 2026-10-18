@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js --open",
-    "test": "node --test server/tests/**/*.test.js",
-    "test:server": "node --test server/tests/**/*.test.js"
+    "test": "node server/tests/run.js",
+    "test:server": "node server/tests/run.js"
   },
   "engines": {
     "node": ">=18"

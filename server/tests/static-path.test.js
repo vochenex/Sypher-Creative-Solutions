@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { resolvePublicPath } = require('../lib/static-path');
+const { resolvePublicPath, isPathInside } = require('../lib/static-path');
 const { HttpError } = require('../lib/http');
 
 describe('resolvePublicPath', () => {
@@ -98,5 +98,15 @@ describe('resolvePublicPath', () => {
     } finally {
       fs.rmSync(sibling, { recursive: true, force: true });
     }
+  });
+});
+
+describe('isPathInside', () => {
+  it('accepts nested files and rejects sibling prefix collisions', () => {
+    const root = path.resolve('/tmp/sypher-public-boundary');
+    assert.equal(isPathInside(root, path.join(root, 'css', 'base.css')), true);
+    assert.equal(isPathInside(root, root), false);
+    assert.equal(isPathInside(root, root + '-evil' + path.sep + 'secret.txt'), false);
+    assert.equal(isPathInside(root, path.join(root, '..', 'outside.txt')), false);
   });
 });
