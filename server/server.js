@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 
 const { sendJson, sendError, HttpError, readJson, createRateLimiter } = require('./lib/http');
+const { resolvePublicPath } = require('./lib/static-path');
 const deviceProfile = require('./routes/device-profile');
 const testResults = require('./routes/test-results');
 
@@ -20,14 +21,17 @@ const postLimiter = createRateLimiter(30);
 const getLimiter = createRateLimiter(120);
 
 let modesConfig = JSON.parse(fs.readFileSync(MODES_FILE, 'utf8'));
-fs.watchFile(MODES_FILE, { interval: 2000 }, () => {
-  try {
-    modesConfig = JSON.parse(fs.readFileSync(MODES_FILE, 'utf8'));
-    console.log(`[config] reloaded modes.json (${modesConfig.configVersion})`);
-  } catch {
-    console.error('[config] modes.json is invalid; keeping previous version');
-  }
-});
+
+function watchModesConfig() {
+  fs.watchFile(MODES_FILE, { interval: 2000 }, () => {
+    try {
+      modesConfig = JSON.parse(fs.readFileSync(MODES_FILE, 'utf8'));
+      console.log(`[config] reloaded modes.json (${modesConfig.configVersion})`);
+    } catch {
+      console.error('[config] modes.json is invalid; keeping previous version');
+    }
+  });
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -103,22 +107,34 @@ async function handleApi(req, res, url) {
 
 /* ---------- Static files ---------- */
 
+function sendStaticError(res, status, message) {
+  if (res.headersSent || res.writableEnded) return;
+  res.writeHead(status, Object.assign({
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-store'
+  }, SECURITY_HEADERS));
+  res.end(message);
+}
+
 function serveStatic(req, res, url) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { Allow: 'GET, HEAD' });
     return res.end();
   }
-  let rel = decodeURIComponent(url.pathname);
-  if (rel.endsWith('/')) rel += 'index.html';
-  const file = path.normalize(path.join(PUBLIC_DIR, rel));
-  if (!file.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403);
-    return res.end();
+
+  let file;
+  try {
+    file = resolvePublicPath(PUBLIC_DIR, url.pathname);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return sendStaticError(res, err.status, err.message);
+    }
+    throw err;
   }
+
   fs.stat(file, (err, stat) => {
     if (err || !stat.isFile()) {
-      res.writeHead(404, Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, SECURITY_HEADERS));
-      return res.end('Not found');
+      return sendStaticError(res, 404, 'Not found');
     }
     const ext = path.extname(file).toLowerCase();
     res.writeHead(200, Object.assign({
@@ -127,24 +143,65 @@ function serveStatic(req, res, url) {
       'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300'
     }, SECURITY_HEADERS));
     if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(file).pipe(res);
+
+    const stream = fs.createReadStream(file);
+    stream.on('error', (streamErr) => {
+      console.error('[static] read stream error:', streamErr.message);
+      if (!res.headersSent) {
+        sendStaticError(res, 500, 'Error reading file');
+      } else {
+        res.destroy(streamErr);
+      }
+    });
+    stream.pipe(res);
   });
 }
 
-/* ---------- Server ---------- */
+function parseRequestUrl(req) {
+  try {
+    return new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  } catch {
+    throw new HttpError(400, 'MALFORMED_URL', 'Request URL could not be parsed');
+  }
+}
 
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+function handleRequest(req, res) {
+  let url;
+  try {
+    url = parseRequestUrl(req);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return sendError(res, err.status, err.code, err.message);
+    }
+    console.error(err);
+    return sendError(res, 500, 'SERVER_ERROR', 'Unexpected server error');
+  }
+
   if (url.pathname.startsWith('/api/')) {
     handleApi(req, res, url).catch((err) => {
       if (err instanceof HttpError) return sendError(res, err.status, err.code, err.message, err.field);
       console.error(err);
-      sendError(res, 500, 'SERVER_ERROR', 'Unexpected server error');
+      if (!res.headersSent) sendError(res, 500, 'SERVER_ERROR', 'Unexpected server error');
     });
     return;
   }
-  serveStatic(req, res, url);
-});
+
+  try {
+    serveStatic(req, res, url);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return sendStaticError(res, err.status, err.message);
+    }
+    console.error(err);
+    sendStaticError(res, 500, 'Unexpected server error');
+  }
+}
+
+/* ---------- Server ---------- */
+
+function createServer() {
+  return http.createServer(handleRequest);
+}
 
 function openBrowser(url) {
   const [cmd, args] =
@@ -160,17 +217,33 @@ function openBrowser(url) {
   }
 }
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use. Stop the other server or run with a different PORT.`);
-    process.exit(1);
-  }
-  throw err;
-});
+function start(port = PORT) {
+  watchModesConfig();
+  const server = createServer();
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Stop the other server or run with a different PORT.`);
+      process.exit(1);
+    }
+    throw err;
+  });
+  server.listen(port, () => {
+    const url = `http://localhost:${port}`;
+    console.log(`Sypher adaptive site running at ${url}`);
+    console.log(`Debug view:  ${url}/?debug=1`);
+    if (process.argv.includes('--open')) openBrowser(url);
+  });
+  return server;
+}
 
-server.listen(PORT, () => {
-  const url = `http://localhost:${PORT}`;
-  console.log(`Sypher adaptive site running at ${url}`);
-  console.log(`Debug view:  ${url}/?debug=1`);
-  if (process.argv.includes('--open')) openBrowser(url);
-});
+if (require.main === module) {
+  start();
+}
+
+module.exports = {
+  createServer,
+  start,
+  handleRequest,
+  PUBLIC_DIR,
+  SECURITY_HEADERS
+};
