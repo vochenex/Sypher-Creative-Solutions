@@ -9,16 +9,18 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { pipeline } = require('stream');
 
-const { sendJson, sendError, HttpError, readJson, createRateLimiter } = require('./lib/http');
+const { sendJson, sendError, HttpError, readJson, readJsonOrForm, createRateLimiter } = require('./lib/http');
 const { resolvePublicPath, isPathInside } = require('./lib/static-path');
 const deviceProfile = require('./routes/device-profile');
 const testResults = require('./routes/test-results');
+const inquiries = require('./routes/inquiries');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const MODES_FILE = path.join(__dirname, 'config', 'modes.json');
 
 const postLimiter = createRateLimiter(30);
+const inquiryLimiter = createRateLimiter(8);
 const getLimiter = createRateLimiter(120);
 
 let modesConfig = JSON.parse(fs.readFileSync(MODES_FILE, 'utf8'));
@@ -101,6 +103,32 @@ async function handleApi(req, res, url) {
     }
     case 'GET /api/test-results':
       return sendJson(res, 200, testResults.list(url.searchParams));
+    case 'POST /api/inquiries': {
+      const inquiryLimit = inquiryLimiter(req);
+      if (!inquiryLimit.ok) {
+        return sendError(res, 429, 'RATE_LIMITED', 'Too many inquiries', null, {
+          'Retry-After': String(inquiryLimit.retryAfter)
+        });
+      }
+      let parsed;
+      try {
+        parsed = await readJsonOrForm(req, 12 * 1024);
+        const result = inquiries.create(parsed.body);
+        if (parsed.kind === 'form') {
+          // Progressive enhancement: redirect back with an honest saved status (not email delivery).
+          res.writeHead(303, Object.assign({ Location: '/?inquiry=saved#contact' }, SECURITY_HEADERS));
+          return res.end();
+        }
+        return sendJson(res, 201, result);
+      } catch (err) {
+        if (parsed && parsed.kind === 'form') {
+          const code = err instanceof HttpError && err.status === 409 ? 'duplicate' : 'error';
+          res.writeHead(303, Object.assign({ Location: '/?inquiry=' + code + '#contact' }, SECURITY_HEADERS));
+          return res.end();
+        }
+        throw err;
+      }
+    }
     default:
       return sendError(res, 404, 'NOT_FOUND', `No route for ${route}`);
   }

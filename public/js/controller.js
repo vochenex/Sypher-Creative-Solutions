@@ -4,14 +4,30 @@
 
   var cfg = S.config;
   var root = document.documentElement;
-  var reducedQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var MODE_VALUES = ['high', 'medium', 'basic'];
+  var reducedQuery = null;
+  try {
+    if (window.matchMedia) reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  } catch (e) {
+    reducedQuery = null;
+  }
+
+  function safeMode(mode, fallback) {
+    var m = String(mode || '').toLowerCase();
+    return MODE_VALUES.indexOf(m) >= 0 ? m : (fallback || 'basic');
+  }
+
+  var bootMode = safeMode(root.getAttribute('data-mode'), 'basic');
+  var bootSource = root.getAttribute('data-source') === 'manual' ? 'manual' : 'auto';
+  root.setAttribute('data-mode', bootMode);
+  root.setAttribute('data-source', bootSource);
 
   var state = S.state = {
     phase: 'INITIALIZING',
     profile: null,
-    mode: root.getAttribute('data-mode') || 'basic',
-    source: root.getAttribute('data-source') || 'auto',
-    motion: root.getAttribute('data-motion') || 'full',
+    mode: bootMode,
+    source: bootSource,
+    motion: root.getAttribute('data-motion') === 'reduced' ? 'reduced' : 'full',
     flags: null,
     serverFlags: {},
     ready: false
@@ -92,6 +108,8 @@
 
   function applyMode(mode, source, opts) {
     opts = opts || {};
+    mode = safeMode(mode, state.mode || 'basic');
+    source = source === 'manual' ? 'manual' : 'auto';
     var changed = mode !== state.mode || source !== state.source || opts.force;
     state.mode = mode;
     state.source = source;
@@ -211,13 +229,18 @@
 
   function progress(step, percent) { emit('progress', { step: step, percent: Math.round(percent) }); }
 
-  function runAnalysis(inline) {
+  function runAnalysis(opts) {
+    opts = opts || {};
+    var inlineStatus = opts.inline !== false;
     var t = cfg.timing;
     var finished = false, signalsReady = null, benchCtl = null;
     var startedAt = performance.now();
     setPhase('ANALYZING');
 
-    var canvas = inline ? document.createElement('canvas') : S.ui.analysis.show(function () { stop('skip'); });
+    // Always nonblocking: polite status + off-screen canvas. Content stays usable.
+    var canvas = S.ui.analysis && S.ui.analysis.show
+      ? S.ui.analysis.show()
+      : document.createElement('canvas');
     var hardTimer = setTimeout(function () { stop('limit'); }, t.analysisHardLimitMs);
 
     function stop(reason) {
@@ -231,7 +254,7 @@
       if (finished) return;
       finished = true;
       clearTimeout(hardTimer);
-      if (!signals) return finalize(fallbackProfile(null), { inline: inline, reason: reason || 'error' });
+      if (!signals) return finalize(fallbackProfile(null), { inline: inlineStatus, reason: reason || 'error' });
 
       signals.fps = bench.completed ? bench.fps : null;
       progress('scoring', 95);
@@ -240,15 +263,22 @@
       var profile = result.fallback ? fallbackProfile(signals) : buildProfile(signals, bench, scored, result);
       setPhase(profile.source === 'fallback' ? 'FALLBACK_DEFAULT' : profile.estimated ? 'ESTIMATED' : 'CLASSIFIED');
       progress('done', 100);
-      finalize(profile, { inline: inline, reason: reason });
+      finalize(profile, { inline: inlineStatus, reason: reason });
       syncWithApi(profile);
     }
 
     progress('signals', 5);
-    S.detect.collectStatic(t).then(function (signals) {
+    var collect = S.detect && S.detect.collectStatic
+      ? S.detect.collectStatic(t)
+      : Promise.reject(new Error('detect unavailable'));
+    collect.then(function (signals) {
       signalsReady = signals;
       if (finished) return;
       progress('webgl', 35);
+      if (!S.detect || !S.detect.runBenchmark) {
+        conclude(signals, { fps: null, completed: false, durationMs: Math.round(performance.now() - startedAt) }, 'nobench');
+        return;
+      }
       benchCtl = S.detect.runBenchmark(canvas, t, function (p) { progress('benchmark', 35 + p * 55); });
       return benchCtl.promise.then(function (b) { conclude(signals, b); });
     }).catch(function () {
@@ -286,15 +316,16 @@
     S.storage.markSession();
 
     var override = S.storage.getOverride();
-    var mode = override !== 'auto' ? override : profile.class.toLowerCase();
+    var detected = safeMode(profile && profile.class, 'medium');
+    var mode = override !== 'auto' ? safeMode(override, detected) : detected;
     var source = override !== 'auto' ? 'manual' : 'auto';
     setPhase(source === 'manual' ? 'OVERRIDDEN' : 'RENDERED');
     applyMode(mode, source, { initial: !state.ready, force: true });
-    root.removeAttribute('data-adaptive-state');
+    root.setAttribute('data-adaptive-state', 'ready');
 
     var firstRender = !state.ready;
-    var afterOverlay = function () {
-      if (!opts.cached) S.ui.banner.show(profile, state.mode, state.source);
+    var finish = function () {
+      if (!opts.cached && S.ui.banner) S.ui.banner.show(profile, state.mode, state.source);
       if (firstRender) {
         state.ready = true;
         emit('ready', { mode: state.mode, score: profile.score, source: state.source });
@@ -310,8 +341,8 @@
       liveWatch.start();
     };
 
-    if (opts.cached || opts.inline) afterOverlay();
-    else S.ui.analysis.hide(afterOverlay);
+    if (S.ui.analysis && S.ui.analysis.hide) S.ui.analysis.hide(finish);
+    else finish();
   }
 
   /* ---------- User actions ---------- */
@@ -338,7 +369,7 @@
       notice('storage-unavailable', S.copy.toast.storage);
     }
 
-    var mode = choice === 'auto' ? detected.toLowerCase() : choice;
+    var mode = choice === 'auto' ? safeMode(detected, 'medium') : safeMode(choice, state.mode);
     var source = choice === 'auto' ? 'auto' : 'manual';
     setPhase(source === 'manual' ? 'OVERRIDDEN' : 'RENDERED');
     applyMode(mode, source);
@@ -359,7 +390,7 @@
 
   function rerun() {
     S.storage.clearProfile();
-    runAnalysis(true);
+    runAnalysis({ inline: true });
   }
 
   /* ---------- Live downgrade watch ---------- */
@@ -404,13 +435,14 @@
 
   function init() {
     writeRoot();
+    applyMode(state.mode, state.source, { initial: true, force: true });
     var cached = root.getAttribute('data-adaptive-state') === 'cached' && S.storage.hasSession()
       ? S.storage.getProfile(cfg.timing.profileTtlHours) : null;
-    if (cached) {
+    if (cached && cached.class) {
       setPhase('CLASSIFIED');
       finalize(cached, { cached: true });
     } else {
-      runAnalysis(false);
+      runAnalysis({ inline: true });
     }
   }
 

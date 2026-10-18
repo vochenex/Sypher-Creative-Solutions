@@ -6,11 +6,16 @@
   var $ = function (id) { return document.getElementById(id); };
   var panel = $('dashboard'), backdrop = $('dash-backdrop'), chip = $('perf-chip'), chipLabel = $('chip-label');
   var footerMode = $('footer-mode'), title = $('dash-title');
-  var desktopQuery = window.matchMedia('(min-width: 1024px)');
+  var desktopQuery = null;
+  try {
+    if (window.matchMedia) desktopQuery = window.matchMedia('(min-width: 1024px)');
+  } catch (e) {
+    desktopQuery = null;
+  }
   var opener = null, isOpen = false;
   var background = [$('main'), $('site-header'), document.querySelector('.site-footer')];
 
-  function modal() { return !desktopQuery.matches; }
+  function modal() { return !(desktopQuery && desktopQuery.matches); }
 
   function setBackgroundInert(on) {
     background.forEach(function (n) { if (n) { if (on) n.setAttribute('inert', ''); else n.removeAttribute('inert'); } });
@@ -68,7 +73,13 @@
     }
   });
 
-  desktopQuery.addEventListener('change', function () { if (isOpen) { var o = opener; close(false); open({ opener: o, focus: false }); } });
+  if (desktopQuery) {
+    var onDesktopChange = function () {
+      if (isOpen) { var o = opener; close(false); open({ opener: o, focus: false }); }
+    };
+    if (desktopQuery.addEventListener) desktopQuery.addEventListener('change', onDesktopChange);
+    else if (desktopQuery.addListener) desktopQuery.addListener(onDesktopChange);
+  }
 
   /* ---------- Rendering ---------- */
 
@@ -223,6 +234,10 @@
     open: open,
     close: close,
     render: render,
-    restore: function () { if (desktopQuery.matches && S.storage.getDashboardOpen()) open({ focus: false, opener: chip }); }
+    restore: function () {
+      if (desktopQuery && desktopQuery.matches && S.storage.getDashboardOpen()) {
+        open({ focus: false, opener: chip });
+      }
+    }
   };
 })(window.Sypher);

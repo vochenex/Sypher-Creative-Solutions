@@ -12,35 +12,44 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="assets/images/showreel-poster.jpg">
 
-  <!-- Early Mode Bootstrap: sets the cached mode before first paint so returning visitors never see a flash of the wrong mode. -->
+  <!-- Early Mode Bootstrap: apply a validated cached mode before paint. Content stays visible while analysis runs. -->
   <script>
     (function () {
       var d = document.documentElement;
       d.classList.add('js');
+      d.setAttribute('data-mode', 'basic');
+      d.setAttribute('data-source', 'auto');
+      d.setAttribute('data-adaptive-state', 'ready');
       try {
-        var rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var rm = false;
+        try { rm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { rm = false; }
         d.setAttribute('data-motion', rm ? 'reduced' : 'full');
-        var o = localStorage.getItem('sypher.override');
-        var p = JSON.parse(localStorage.getItem('sypher.profile') || 'null');
+        var o = null, p = null, session = null;
+        try { o = localStorage.getItem('sypher.override'); } catch (e) { o = null; }
+        try { p = JSON.parse(localStorage.getItem('sypher.profile') || 'null'); } catch (e) { p = null; }
+        try { session = sessionStorage.getItem('sypher.session'); } catch (e) { session = null; }
         var simulating = /[?&]debug=1/.test(location.search) && /[?&]sim=/.test(location.search);
-        var fresh = !simulating && p && typeof p.timestamp === 'number' && Date.now() - p.timestamp < 864e5 && sessionStorage.getItem('sypher.session') === '1';
-        var mode = null;
+        var classes = { HIGH: 1, MEDIUM: 1, BASIC: 1 };
+        var validProfile = p && typeof p.timestamp === 'number' && p.timestamp <= Date.now() + 60000 &&
+          classes[p['class']] && Date.now() - p.timestamp < 864e5;
+        var fresh = !simulating && validProfile && session === '1';
         if (fresh) {
           var manual = o === 'high' || o === 'medium' || o === 'basic';
-          mode = manual ? o : String(p['class']).toLowerCase();
-          d.setAttribute('data-mode', mode);
-          d.setAttribute('data-source', manual ? 'manual' : 'auto');
-          d.setAttribute('data-adaptive-state', 'cached');
-        } else {
-          d.setAttribute('data-adaptive-state', 'analyzing');
-        }
-        // Hold the hero choreography until HIGH effects take over; site.js releases it for every other outcome.
-        if (!rm && (mode === null || mode === 'high')) {
-          d.classList.add('intro-pending');
-          setTimeout(function () { d.classList.remove('intro-pending'); }, 4000);
+          var mode = manual ? o : String(p['class']).toLowerCase();
+          if (mode === 'high' || mode === 'medium' || mode === 'basic') {
+            d.setAttribute('data-mode', mode);
+            d.setAttribute('data-source', manual ? 'manual' : 'auto');
+            d.setAttribute('data-adaptive-state', 'cached');
+            // Only hold HIGH intro choreography for a warm cached High session — never during cold analysis.
+            if (!rm && mode === 'high') {
+              d.classList.add('intro-pending');
+              setTimeout(function () { d.classList.remove('intro-pending'); }, 4000);
+            }
+          }
         }
       } catch (e) {
-        d.setAttribute('data-adaptive-state', 'analyzing');
+        d.setAttribute('data-mode', 'basic');
+        d.setAttribute('data-adaptive-state', 'ready');
       }
     })();
   </script>
@@ -72,23 +81,10 @@
 
   <a class="skip-link" href="#main">Skip to content</a>
 
-  <!-- Analysis Screen -->
-  <div class="analysis" id="analysis" aria-labelledby="analysis-title">
-    <div class="analysis__card">
-      <div class="analysis__visual" aria-hidden="true">
-        <canvas class="analysis__bench" id="bench-canvas"></canvas>
-        <span class="analysis__logo">
-          <svg viewBox="0 0 40 40" width="34" height="34"><path d="M28 9H16a7 7 0 0 0 0 14h8a4 4 0 0 1 0 8H11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-        </span>
-      </div>
-      <p class="analysis__title" id="analysis-title" aria-live="polite">Analyzing Device Performance&hellip;</p>
-      <p class="analysis__help">This takes about 2 seconds.</p>
-      <div class="progress" role="progressbar" aria-label="Analysis progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0 percent">
-        <span class="progress__bar" id="analysis-bar"></span>
-      </div>
-      <p class="analysis__step" id="analysis-step">Checking your device</p>
-      <button type="button" class="btn btn--ghost analysis__skip" id="analysis-skip">Skip</button>
-    </div>
+  <!-- Nonblocking analysis status: never covers content or makes the page inert. -->
+  <div class="analysis" id="analysis" hidden role="status" aria-live="polite" aria-atomic="true">
+    <p class="analysis__title" id="analysis-title">Analyzing Device Performance&hellip;</p>
+    <p class="analysis__step" id="analysis-step">Checking your device quietly in the background.</p>
   </div>
 
   <header class="site-header" id="site-header">
@@ -518,17 +514,23 @@
           <div class="contact__form-wrap reveal">
             <h2 id="contact-title">Tell us what you want to <span class="hl">move</span></h2>
             <p class="section__lead">Share a few details and a strategist will reply within 1 business day.</p>
-            <form class="form" id="contact-form" action="#" method="post" novalidate>
+            <form class="form" id="contact-form" action="/api/inquiries" method="post" enctype="application/x-www-form-urlencoded" novalidate>
+              <p class="form__note">Demo note: inquiries are saved on this server for review. This form does not send email.</p>
+              <div class="field field--honeypot" aria-hidden="true">
+                <label for="f-company">Company website</label>
+                <input id="f-company" name="company_website" type="text" tabindex="-1" autocomplete="off">
+              </div>
+              <input type="hidden" id="f-request-id" name="clientRequestId" value="">
               <div class="field--row">
                 <div class="field">
                   <label for="f-name">Name</label>
-                  <input id="f-name" name="name" type="text" autocomplete="name" required aria-describedby="f-name-err">
-                  <p class="field__err" id="f-name-err"></p>
+                  <input id="f-name" name="name" type="text" autocomplete="name" required maxlength="120" aria-describedby="f-name-err">
+                  <p class="field__err" id="f-name-err" role="alert"></p>
                 </div>
                 <div class="field">
                   <label for="f-email">Email</label>
-                  <input id="f-email" name="email" type="email" autocomplete="email" required aria-describedby="f-email-err">
-                  <p class="field__err" id="f-email-err"></p>
+                  <input id="f-email" name="email" type="email" autocomplete="email" required maxlength="254" aria-describedby="f-email-err">
+                  <p class="field__err" id="f-email-err" role="alert"></p>
                 </div>
               </div>
               <div class="field--row">
@@ -547,14 +549,14 @@
               </div>
               <div class="field">
                 <label for="f-msg">Message</label>
-                <textarea id="f-msg" name="message" rows="4" required aria-describedby="f-msg-err"></textarea>
-                <p class="field__err" id="f-msg-err"></p>
+                <textarea id="f-msg" name="message" rows="4" required maxlength="4000" aria-describedby="f-msg-err"></textarea>
+                <p class="field__err" id="f-msg-err" role="alert"></p>
               </div>
               <div class="form__foot">
                 <button class="btn btn--primary" type="submit" data-magnetic>Send message</button>
-                <p class="form__promise">We reply within 1 business day.</p>
+                <p class="form__promise">We aim to reply within 1 business day after a saved inquiry is reviewed.</p>
               </div>
-              <p class="form__status" id="form-status" aria-live="polite"></p>
+              <p class="form__status" id="form-status" role="status" aria-live="polite"></p>
             </form>
           </div>
           <aside class="contact__side reveal" aria-label="Contact details">
@@ -666,7 +668,17 @@
     </div>
   </aside>
 
-  <noscript><style>.analysis{display:none!important}</style></noscript>
+  <noscript>
+    <style>
+      .analysis{display:none!important}
+      .menu-btn{display:none!important}
+      @media (max-width:1023px){
+        .nav{position:static!important;display:block!important;inset:auto!important;padding:0!important;background:transparent!important;z-index:auto!important}
+        .nav__list{flex-direction:row!important;flex-wrap:wrap!important;gap:4px!important}
+        .nav__list a{font-family:inherit!important;font-size:0.92rem!important;min-height:44px!important;font-stretch:normal!important;font-weight:500!important}
+      }
+    </style>
+  </noscript>
 
   <script src="js/config.js" defer></script>
   <script src="js/copy.js" defer></script>
