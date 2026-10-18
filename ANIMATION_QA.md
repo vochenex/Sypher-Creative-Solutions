@@ -1,19 +1,34 @@
 # Animation and display-mode verification
 
-The homepage follows the selected display mode. The slow project ribbon is the
-intentional exception: it starts automatically in every mode, including reduced
-motion, as requested. The Pause motion control pauses the hero effects together.
+The homepage follows the selected display mode. High starts the project ribbon
+and background animations automatically. Selecting High explicitly also enables
+motion without a separate opt-in, and a saved manual High choice restores this
+behavior on return visits. The Pause motion control pauses the hero effects together.
+Returning from another mode to High restarts the hero; hiding/showing the tab
+preserves an explicit pause.
 
 | Mode | Homepage | Rest of the page |
 | --- | --- | --- |
 | High | Word entrance, WebGL lighting, animated ripple field, cursor halo and card tilt on a fine pointer | Scroll scenes, parallax, counters, magnetic buttons, spotlight borders, automatic testimonials and muted video preview |
-| Medium | Headline fade, CSS color drift, hover lift, native cursor | Lighter reveals and transitions, manual testimonial slider and click-to-play video |
-| Basic | Static warm background, system font, native cursor, slow project ribbon | No High scenes or libraries; static testimonials, immediate accordion changes and click-to-play video |
+| Medium | Headline fade, manual project ribbon, hover lift, native cursor | Lighter reveals and transitions, manual testimonial slider and click-to-play video |
+| Basic | Static warm background, system font, native cursor, static project grid | No High scenes or libraries; static testimonials, immediate accordion changes and click-to-play video |
 
-Reduced motion disables the richer effects and WebGL, while keeping the requested
-slow ribbon. Returning to full motion restores the selected mode's effects.
+Auto respects the system's reduced-motion preference. Choosing High explicitly
+enables its animations; returning to Auto or a lighter mode restores the system
+preference. A new system preference change still updates motion immediately.
 
-## Checks performed
+## High automatic-start update, October 19, 2026
+
+- Full automated suite: 93 passing tests on the final rerun. The first run had
+  a local inquiry-store write failure; the isolated inquiry tests and full rerun passed.
+- Regressions cover selecting High under reduced motion, restoring saved High
+  on a new session, restarting an already selected High mode, returning to Auto,
+  and stopping effects after a new system motion-preference change.
+- Local browser inspection confirmed High, full motion, and hero autoplay enabled.
+- Windows could not create symlinks, so the two symlink-containment branches were
+  unavailable despite the test runner reporting no skipped tests.
+
+## Earlier checks (historical evidence)
 
 - Automated suite: **60 passing tests**, including four mode-transition regression tests.
 - Chrome desktop: 1440 x 950.

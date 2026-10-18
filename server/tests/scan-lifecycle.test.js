@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const source = file => fs.readFileSync(path.join(__dirname, '../../public/js', file), 'utf8');
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
 
-function harness(store = new Map()) {
+function harness(store = new Map(), reducedMotion = false) {
   const attrs = new Map([['data-mode', 'basic'], ['data-motion', 'full']]);
   const nodes = new Map(), events = [], timers = new Map();
   let timerId = 0, now = 0;
@@ -33,7 +33,7 @@ function harness(store = new Map()) {
     localStorage, sessionStorage: {
       getItem: key => sessionStore.get(key) || null, setItem: (key, value) => sessionStore.set(key, String(value)),
       removeItem: key => sessionStore.delete(key)
-    }, matchMedia: () => ({ matches: false, addEventListener() {} })
+    }, matchMedia: () => ({ matches: reducedMotion, addEventListener() {} })
   };
   const context = vm.createContext({
     window, document, console, performance: { now: () => now },
@@ -95,6 +95,24 @@ function harness(store = new Map()) {
 }
 
 describe('one-scan performance setup', () => {
+  it('restores saved manual High with animations on in a new reduced-motion session', async () => {
+    const first = harness();
+    first.S.controller.init();
+    await flush();
+    first.finish();
+    await flush();
+    first.store.set('sypher.override', 'high');
+    const next = harness(first.store, true);
+    next.S.controller.init();
+    await flush();
+    assert.equal(next.S.state.ready, true);
+    assert.equal(next.S.state.mode, 'high');
+    assert.equal(next.S.state.source, 'manual');
+    assert.equal(next.S.state.motion, 'full');
+    assert.equal(next.S.state.flags.webglScene, true);
+    assert.equal(next.calls.benchmark, 0);
+  });
+
   it('runs once even when init and re-run are called repeatedly during detection', async () => {
     const { S, calls, finish } = harness();
     S.controller.init(); S.controller.init(); S.controller.rerun();

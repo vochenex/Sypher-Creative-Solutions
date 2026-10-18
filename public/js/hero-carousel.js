@@ -199,7 +199,7 @@
     if (autoplay || fieldEnabled || pointerEnabled || slide) frame = requestAnimationFrame(tick);
   }
 
-  function sync() {
+  function sync(event) {
     if (frame) cancelAnimationFrame(frame);
     frame = null;
     last = 0;
@@ -207,6 +207,7 @@
     var flags = S && S.state && S.state.flags;
     var mode = root.getAttribute('data-mode');
     var nextQuality = mode === 'high' || mode === 'medium' ? mode : 'basic';
+    if (nextQuality === 'high' && (quality !== 'high' || (event && event.detail && event.detail.restartMotion))) paused = false;
     if (nextQuality !== quality || document.hidden) { drag = null; slide = null; hero.classList.remove('is-dragging'); }
     quality = nextQuality;
     manualEnabled = quality !== 'basic';
@@ -227,6 +228,10 @@
     resize();
     hero.classList.toggle('is-motion-paused', !autoplay);
     pause.hidden = quality !== 'high' || !fullMotion;
+    pause.setAttribute('aria-pressed', String(paused));
+    pause.setAttribute('aria-label', paused ? 'Resume hero animation' : 'Pause hero animation');
+    pause.querySelector('use').setAttribute('href', paused ? '#i-play' : '#i-pause');
+    pause.querySelector('span').textContent = paused ? 'Resume motion' : 'Pause motion';
     if (!pointerEnabled) {
       pointerActive = false;
       if (hoveredCard) { hoveredCard.style.removeProperty('--card-tilt-x'); hoveredCard.style.removeProperty('--card-tilt-y'); hoveredCard = null; }
@@ -324,10 +329,6 @@
   });
   pause.addEventListener('click', function () {
     paused = !paused;
-    pause.setAttribute('aria-pressed', String(paused));
-    pause.setAttribute('aria-label', paused ? 'Resume hero animation' : 'Pause hero animation');
-    pause.querySelector('use').setAttribute('href', paused ? '#i-play' : '#i-pause');
-    pause.querySelector('span').textContent = paused ? 'Resume motion' : 'Pause motion';
     sync();
   });
   document.addEventListener('visibilitychange', sync);

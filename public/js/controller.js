@@ -5,7 +5,7 @@
   var cfg = S.config;
   var root = document.documentElement;
   var MODE_VALUES = ['high', 'medium', 'basic'];
-  var ASSET_VERSION = '20261018-pointer-1';
+  var ASSET_VERSION = '20261019-high-autostart-1';
   var reducedQuery = null;
   try {
     if (window.matchMedia) reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -139,9 +139,12 @@
     opts = opts || {};
     mode = safeMode(mode, state.mode || 'basic');
     source = source === 'manual' ? 'manual' : 'auto';
-    var changed = mode !== state.mode || source !== state.source || opts.force;
+    var changed = mode !== state.mode || source !== state.source || opts.force || opts.restartMotion;
     state.mode = mode;
     state.source = source;
+    // Choosing (or restoring) High opts into its animations without a second action.
+    // Auto and the lighter modes continue to follow the system/session preference.
+    state.motion = mode === 'high' && source === 'manual' ? 'full' : resolveMotion();
     state.flags = effectiveFlags(mode);
     var revision = ++modeRevision;
 
@@ -151,7 +154,7 @@
       writeRoot();
       applyAssets(state.flags);
       if (changed && state.ready) {
-        emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags });
+        emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags, restartMotion: !!opts.restartMotion });
       }
       liveWatch.reset();
     };
@@ -488,7 +491,7 @@
     var mode = choice === 'auto' ? safeMode(detected, 'medium') : safeMode(choice, state.mode);
     var source = choice === 'auto' ? 'auto' : 'manual';
     setPhase(source === 'manual' ? 'OVERRIDDEN' : 'RENDERED');
-    applyMode(mode, source);
+    applyMode(mode, source, { restartMotion: choice === 'high' });
 
     if (!opts.silent) {
       notice('mode-changed', choice === 'auto' ? S.copy.toast.auto(mode) : S.copy.toast.changed(mode), {

@@ -41,9 +41,10 @@
           if (mode === 'high' || mode === 'medium' || mode === 'basic') {
             d.setAttribute('data-mode', mode);
             d.setAttribute('data-source', manual ? 'manual' : 'auto');
+            if (manual && mode === 'high') d.setAttribute('data-motion', 'full');
             d.setAttribute('data-adaptive-state', 'cached');
             // Restore the saved mode before paint, including on a new browser visit.
-            if (!rm && mode === 'high') {
+            if (d.getAttribute('data-motion') === 'full' && mode === 'high') {
               d.classList.add('intro-pending');
               setTimeout(function () { d.classList.remove('intro-pending'); }, 4000);
             }
@@ -653,14 +654,14 @@
   <script src="js/score.js" defer></script>
   <script src="js/classify.js" defer></script>
   <script src="js/api-client.js" defer></script>
-  <script src="js/controller.js?v=20261019-bands-1" defer></script>
+  <script src="js/controller.js?v=20261019-high-autostart-1" defer></script>
   <script src="js/ui-analysis.js?v=20261019-scan-1" defer></script>
   <script src="js/ui-notices.js" defer></script>
   <script src="js/ui-dashboard.js?v=20261018-modes-4" defer></script>
-  <script src="js/ui-override.js?v=20261018-modes-4" defer></script>
+  <script src="js/ui-override.js?v=20261019-high-autostart-1" defer></script>
   <script src="js/site.js?v=20261019-email-1" defer></script>
   <script src="js/contact-email.js?v=20261019-1" defer></script>
-  <script src="js/hero-carousel.js?v=20261019-works-1" defer></script>
+  <script src="js/hero-carousel.js?v=20261019-high-autostart-1" defer></script>
   <script src="js/site-cursor.js?v=20261019-promo-1" defer></script>
   <script src="js/promotional-video.js?v=20261019-filmstrip-2" defer></script>
   <script src="js/studio-intro.js?v=20261019-service-cards-1" defer></script>

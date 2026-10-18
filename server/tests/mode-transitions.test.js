@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function loadController() {
+function loadController({ reduced = false } = {}) {
   const attributes = new Map([['data-mode', 'basic'], ['data-motion', 'full']]);
   const nodes = new Map();
   const events = [];
@@ -51,7 +51,7 @@ function loadController() {
     Sypher: S,
     matchMedia: () => motionQuery
   };
-  const motionQuery = { matches: false, addEventListener(_, listener) { motionListener = listener; } };
+  const motionQuery = { matches: reduced, addEventListener(_, listener) { motionListener = listener; } };
   const document = {
     documentElement: root,
     getElementById: id => nodes.get(id),
@@ -75,6 +75,44 @@ function loadController() {
 }
 
 describe('mode transition regression coverage', () => {
+  it('starts animations when High is selected under system reduced motion', async () => {
+    const { S, root, pending, events } = loadController({ reduced: true });
+    S.controller.setOverride('high', { silent: true });
+    pending[0].run();
+    await Promise.resolve();
+    assert.equal(root.getAttribute('data-motion'), 'full');
+    assert.equal(S.state.flags.webglScene, true);
+    assert.equal(S.highEffects.active, true);
+    assert.equal(events.find(e => e.type === 'adaptive:modechange').detail.restartMotion, true);
+  });
+
+  it('restores the system motion preference when returning to Auto or Medium', async () => {
+    const { S, root, pending } = loadController({ reduced: true });
+    S.state.profile = { class: 'HIGH' };
+    S.controller.setOverride('high', { silent: true });
+    pending[0].run();
+    await Promise.resolve();
+    S.controller.setOverride('auto', { silent: true });
+    assert.equal(root.getAttribute('data-motion'), 'reduced');
+    assert.equal(S.highEffects.active, false);
+    S.controller.setOverride('medium', { silent: true });
+    assert.equal(root.getAttribute('data-mode'), 'medium');
+    assert.equal(root.getAttribute('data-motion'), 'reduced');
+  });
+
+  it('publishes a restart when the already selected High mode is chosen again', async () => {
+    const { S, pending, events } = loadController();
+    S.controller.setOverride('high', { silent: true });
+    pending[0].run();
+    await Promise.resolve();
+    events.length = 0;
+    S.controller.setOverride('high', { silent: true });
+    pending[1].run();
+    await Promise.resolve();
+    assert.equal(events.filter(e => e.type === 'adaptive:modechange').length, 1);
+    assert.equal(events.find(e => e.type === 'adaptive:modechange').detail.restartMotion, true);
+  });
+
   it('publishes the new mode only after its view-transition DOM commit', async () => {
     const { S, root, events, pending } = loadController();
     S.controller.setOverride('high', { silent: true });

@@ -21,7 +21,7 @@
 
   function apply(choice) {
     clearTimeout(debounce);
-    if (choice === currentChoice()) { warn.hidden = true; return; }
+    if (choice === currentChoice() && choice !== 'high') { warn.hidden = true; return; }
     var result = S.controller.setOverride(choice);
     if (result === 'confirm') {
       pendingFocus = radios.filter(function (r) { return r.value === 'high'; })[0];
