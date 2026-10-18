@@ -739,13 +739,16 @@ html[data-mode="basic"] .gauge__value { stroke: var(--accent-3); }
   .logo span { display: none; }
 }
 
-/* ---------- Reduced-motion guard (always wins, with or without JavaScript) ---------- */
+/* ---------- Reduced-motion guard ----------
+   With JavaScript, data-motion is the source of truth (Accessibility Guard).
+   The @media block is a no-JS backup only — it must not override data-motion="full"
+   after a visitor opts into motion for this visit. */
 html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-motion="reduced"] *::after {
   animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important; scroll-behavior: auto !important;
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  html:not(.js) *, html:not(.js) *::before, html:not(.js) *::after {
     animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important; scroll-behavior: auto !important;
   }

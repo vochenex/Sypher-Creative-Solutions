@@ -145,10 +145,15 @@
   function render(profile, mode, source) {
     if (!banner) return;
     var cls = profile['class'];
+    var reduced = (S.state && S.state.motion === 'reduced') ||
+      document.documentElement.getAttribute('data-motion') === 'reduced';
     var lines = [];
     if (profile.source === 'fallback') lines.push(C.resultFallback);
+    else if (reduced && C.resultBodyReduced && C.resultBodyReduced[cls]) lines.push(C.resultBodyReduced[cls]);
     else lines.push(C.resultBody[cls]);
-    if (profile.benchmarkVerified && cls === 'HIGH') lines.push(C.resultVerified);
+    if (profile.benchmarkVerified && cls === 'HIGH') {
+      lines.push(reduced && C.resultVerifiedReduced ? C.resultVerifiedReduced : C.resultVerified);
+    }
     if (profile.estimated && profile.source !== 'fallback') lines.push(C.resultEstimated);
     if (source === 'manual') lines.push(C.resultManual(mode));
     var why = whyLine(profile);

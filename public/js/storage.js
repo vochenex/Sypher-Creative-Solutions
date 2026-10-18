@@ -7,7 +7,9 @@
     profile: 'sypher.profile',
     dashboardOpen: 'sypher.dashboardOpen',
     session: 'sypher.session',
-    downgradeDismissed: 'sypher.downgradeDismissed'
+    downgradeDismissed: 'sypher.downgradeDismissed',
+    /** Session-only opt-in to play motion even when OS reduce-motion is on. */
+    motionAllow: 'sypher.motionAllow'
   };
   var MODES = ['auto', 'high', 'medium', 'basic'];
   var CLASSES = ['HIGH', 'MEDIUM', 'BASIC'];
@@ -106,6 +108,10 @@
 
     isDowngradeDismissed: function () { return read('sessionStorage', KEYS.downgradeDismissed) === '1'; },
     dismissDowngrade: function () { return write('sessionStorage', KEYS.downgradeDismissed, '1'); },
+
+    isMotionAllowed: function () { return read('sessionStorage', KEYS.motionAllow) === '1'; },
+    allowMotion: function () { return write('sessionStorage', KEYS.motionAllow, '1'); },
+    clearMotionAllow: function () { return write('sessionStorage', KEYS.motionAllow, null); },
 
     writeFailed: function () { return failedWrite; },
 

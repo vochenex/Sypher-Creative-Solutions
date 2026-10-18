@@ -68,6 +68,18 @@
   }
 
   var highEffectsLoading = null;
+  var effectsEpoch = 0;
+
+  function wantsHighEffects(flags) {
+    if (state.mode !== 'high' || state.motion !== 'full') return false;
+    flags = flags || state.flags || {};
+    return !!(flags.webglScene || flags.cursorEffects || flags.parallax || flags.hoverEffects === 'tilt-preview');
+  }
+
+  function setHighFxClass(on) {
+    root.classList.toggle('high-fx', !!on);
+  }
+
   function loadHighEffects() {
     if (S.highEffects) return Promise.resolve(S.highEffects);
     if (highEffectsLoading) return highEffectsLoading;
@@ -92,11 +104,26 @@
     ensureStylesheet('css-mode-medium', 'css/mode-medium.css', state.mode !== 'basic');
     ensureStylesheet('css-mode-high', 'css/mode-high.css', state.mode === 'high');
 
-    var needsHigh = flags.webglScene || flags.cursorEffects || flags.parallax || flags.hoverEffects === 'tilt-preview';
-    if (needsHigh) {
-      loadHighEffects().then(function (fx) { if (fx) fx.start(state.flags); }, function () {});
-    } else if (S.highEffects) {
-      S.highEffects.stop();
+    var epoch = ++effectsEpoch;
+    if (wantsHighEffects(flags)) {
+      loadHighEffects().then(function (fx) {
+        if (epoch !== effectsEpoch) return;
+        if (!wantsHighEffects(state.flags)) {
+          if (fx && fx.stop) fx.stop();
+          setHighFxClass(false);
+          return;
+        }
+        var ok = fx && fx.start
+          ? fx.start(state.flags, { epoch: epoch, getEpoch: function () { return effectsEpoch; } })
+          : false;
+        setHighFxClass(ok !== false && !!(fx && fx.isActive ? fx.isActive() : ok));
+      }, function () {
+        if (epoch !== effectsEpoch) return;
+        setHighFxClass(false);
+      });
+    } else {
+      if (S.highEffects) S.highEffects.stop();
+      setHighFxClass(false);
     }
   }
 
@@ -142,23 +169,64 @@
 
   /* ---------- Accessibility Guard ---------- */
 
-  function setMotion(reduced) {
-    state.motion = reduced ? 'reduced' : 'full';
+  function systemWantsReduced() {
+    return !!(reducedQuery && reducedQuery.matches);
+  }
+
+  /** data-motion source of truth: session allow > OS preference. */
+  function resolveMotion() {
+    if (S.storage && S.storage.isMotionAllowed && S.storage.isMotionAllowed()) return 'full';
+    return systemWantsReduced() ? 'reduced' : 'full';
+  }
+
+  function offerMotionAllow() {
+    notice('reduced-motion', S.copy.toast.rmHigh, {
+      tone: 'info',
+      persistent: true,
+      actions: [
+        {
+          label: 'Show animations this visit',
+          run: function () {
+            if (S.storage && S.storage.allowMotion) S.storage.allowMotion();
+            applyResolvedMotion({ announceAllow: true });
+          }
+        }
+      ]
+    });
+  }
+
+  function applyResolvedMotion(opts) {
+    opts = opts || {};
+    var next = resolveMotion();
+    var changed = next !== state.motion;
+    state.motion = next;
     state.flags = effectiveFlags(state.mode);
     writeRoot();
     applyAssets(state.flags);
-    if (state.ready) {
+    if (state.ready && (changed || opts.force)) {
       emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags });
-      if (reduced && state.mode === 'high') notice('reduced-motion', S.copy.toast.rmHigh);
     }
+    if (opts.announceAllow && state.motion === 'full') {
+      notice('motion-allowed', S.copy.toast.rmAllow);
+    } else if (state.ready && state.motion === 'reduced' && state.mode === 'high' && !opts.silent) {
+      offerMotionAllow();
+    }
+  }
+
+  function setMotion(systemReduced) {
+    // Media-query change: if the OS turned reduce-motion off, drop a stale session allow.
+    if (systemReduced === false && S.storage && S.storage.clearMotionAllow) {
+      S.storage.clearMotionAllow();
+    }
+    applyResolvedMotion();
   }
 
   if (reducedQuery) {
     var onMotion = function (e) { setMotion(e.matches); };
     if (reducedQuery.addEventListener) reducedQuery.addEventListener('change', onMotion);
     else if (reducedQuery.addListener) reducedQuery.addListener(onMotion);
-    state.motion = reducedQuery.matches ? 'reduced' : 'full';
   }
+  state.motion = resolveMotion();
 
   /* ---------- Profile building ---------- */
 
@@ -337,7 +405,7 @@
         notice('fallback', S.copy.toast.fallback, { tone: 'warning', persistent: true, actions: [{ label: 'Try again', run: rerun }] });
       }
       if (source === 'manual' && mode === 'high' && profile.class === 'BASIC') slowDeviceWarning();
-      if (state.motion === 'reduced' && state.mode === 'high') notice('reduced-motion', S.copy.toast.rmHigh);
+      if (state.motion === 'reduced' && state.mode === 'high') offerMotionAllow();
       liveWatch.start();
     };
 
@@ -384,7 +452,7 @@
       });
     }
     if (opts.confirmed && choice === 'high') slowDeviceWarning();
-    if (state.motion === 'reduced' && mode === 'high') notice('reduced-motion', S.copy.toast.rmHigh);
+    if (state.motion === 'reduced' && mode === 'high') offerMotionAllow();
     return 'applied';
   }
 

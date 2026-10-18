@@ -72,7 +72,13 @@
 
   function heroInit() {
     if (hero.gl) return true;
-    var gl = hero.canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'low-power', preserveDrawingBuffer: false });
+    if (!hero.canvas) hero.canvas = document.getElementById('hero-canvas');
+    if (!hero.canvas) return false;
+    var opts = { antialias: false, alpha: false, powerPreference: 'low-power', preserveDrawingBuffer: false };
+    // Prefer WebGL2 when available (Safari/iOS flagships); fall back to WebGL1 aliases.
+    var gl = hero.canvas.getContext('webgl2', opts) ||
+      hero.canvas.getContext('webgl', opts) ||
+      hero.canvas.getContext('experimental-webgl', opts);
     if (!gl) return false;
     try {
       var prog = gl.createProgram();
@@ -376,9 +382,16 @@
   var started = false;
 
   S.highEffects = {
-    start: function (flags) {
-      var motion = root.getAttribute('data-motion') === 'full';
-      if (!motion) { this.stop(); release(); return; }
+    start: function (flags, meta) {
+      flags = flags || {};
+      meta = meta || {};
+      // Refuse incompatible or stale generations so Basic/Medium/reduced never keep High motion.
+      if (root.getAttribute('data-mode') !== 'high') { this.stop(); return false; }
+      if (root.getAttribute('data-motion') !== 'full') { this.stop(); release(); return false; }
+      if (typeof meta.getEpoch === 'function' && meta.epoch != null && meta.getEpoch() !== meta.epoch) {
+        this.stop();
+        return false;
+      }
 
       if (flags.webglScene) heroStart(); else heroStop();
       hero.paused = S.heroPaused ? S.heroPaused() : false;
@@ -392,22 +405,37 @@
 
       if (!started) {
         started = true;
-        buildScenes(flags);
-        window.addEventListener('load', function () { ScrollTrigger.refresh(); }, { once: true });
+        try {
+          buildScenes(flags);
+          window.addEventListener('load', function () { ScrollTrigger.refresh(); }, { once: true });
+        } catch (err) {
+          started = false;
+          if (ctx) { try { ctx.revert(); } catch (e) { /* ignore */ } ctx = null; }
+          release();
+          return false;
+        }
       }
+      return true;
     },
     stop: function () {
       started = false;
+      introPlayed = false;
       heroStop();
       pointerOn = false;
       document.querySelectorAll('[data-spot].is-lit').forEach(function (el) { el.classList.remove('is-lit'); });
       magnetsStop();
       tiltsStop();
       sheetTiltStop();
-      header.classList.remove('is-tucked');
+      if (header) header.classList.remove('is-tucked');
       if (ctx) { ctx.revert(); ctx = null; }
+      try {
+        if (ScrollTrigger && ScrollTrigger.getAll) {
+          ScrollTrigger.getAll().forEach(function (t) { t.kill(); });
+        }
+      } catch (e) { /* ignore */ }
       document.querySelectorAll('[data-count]').forEach(function (el) { el.textContent = countFinal(el); });
     },
-    setPaused: function (p) { hero.paused = p; if (!p) heroKick(); }
+    setPaused: function (p) { hero.paused = p; if (!p) heroKick(); },
+    isActive: function () { return !!started; }
   };
 })(window.Sypher);

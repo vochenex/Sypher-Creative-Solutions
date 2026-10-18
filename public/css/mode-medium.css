@@ -18,15 +18,24 @@ html[data-mode="medium"] .nav__list a, html[data-mode="high"] .nav__list a { pos
   html[data-mode="medium"] .nav__list a:hover::after, html[data-mode="high"] .nav__list a:hover::after { transform: scaleX(1); }
 }
 
-/* Hero: slow CSS-only light drift across the paper card */
-html[data-mode="medium"] .hero__gradient {
+/* Hero: slow CSS-only light drift across the paper card.
+   HIGH also shows the gradient until the WebGL canvas is live, so a late or failed
+   GSAP/WebGL load never leaves a blank hero sheet. */
+html[data-mode="medium"] .hero__gradient,
+html[data-mode="high"] .hero__gradient {
   opacity: 1;
   background:
     radial-gradient(38% 46% at 22% 70%, rgba(191, 226, 111, 0.34), transparent 70%),
     radial-gradient(34% 40% at 82% 30%, rgba(191, 226, 111, 0.22), transparent 70%);
 }
-html[data-mode="medium"][data-motion="full"] .hero__gradient { animation: drift 22s ease-in-out infinite alternate; }
-html[data-mode="medium"].is-paused .hero__gradient { animation-play-state: paused; }
+html[data-mode="high"] .hero__media:has(.hero__canvas.is-live) .hero__gradient {
+  opacity: 0;
+  animation: none;
+}
+html[data-mode="medium"][data-motion="full"] .hero__gradient,
+html[data-mode="high"][data-motion="full"] .hero__gradient { animation: drift 22s ease-in-out infinite alternate; }
+html[data-mode="medium"].is-paused .hero__gradient,
+html[data-mode="high"].is-paused .hero__gradient { animation-play-state: paused; }
 @keyframes drift {
   0% { transform: translate3d(-5%, -2%, 0) scale(1); }
   100% { transform: translate3d(5%, 3%, 0) scale(1.1); }
@@ -93,7 +102,9 @@ html[data-mode="medium"][data-motion="full"] .reel-banner__reel,
 html[data-mode="high"][data-motion="full"] .reel-banner__reel { animation: orbit 18s linear infinite; }
 
 /* Marquee: CSS loop in MEDIUM; HIGH hands it to GSAP for scroll-velocity response */
-html[data-mode="medium"][data-motion="full"] .marquee__track { animation: marquee 48s linear infinite; }
+/* CSS marquee for Medium always; High uses it until GSAP high-fx takes over. */
+html[data-mode="medium"][data-motion="full"] .marquee__track,
+html[data-mode="high"][data-motion="full"]:not(.high-fx) .marquee__track { animation: marquee 48s linear infinite; }
 @keyframes marquee { to { transform: translate3d(-50%, 0, 0); } }
 
 /* Testimonials slider */

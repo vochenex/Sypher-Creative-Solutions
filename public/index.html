@@ -23,7 +23,9 @@
       try {
         var rm = false;
         try { rm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { rm = false; }
-        d.setAttribute('data-motion', rm ? 'reduced' : 'full');
+        var motionAllow = false;
+        try { motionAllow = sessionStorage.getItem('sypher.motionAllow') === '1'; } catch (e) { motionAllow = false; }
+        d.setAttribute('data-motion', (rm && !motionAllow) ? 'reduced' : 'full');
         var o = null, p = null, session = null;
         try { o = localStorage.getItem('sypher.override'); } catch (e) { o = null; }
         try { p = JSON.parse(localStorage.getItem('sypher.profile') || 'null'); } catch (e) { p = null; }
@@ -629,7 +631,7 @@
             <button type="button" class="btn btn--ghost btn--sm" id="warn-cancel">Keep current mode</button>
           </div>
         </div>
-        <p class="override__note" id="override-rm" hidden>Animations are off because your device&rsquo;s reduce-motion setting is on.</p>
+        <p class="override__note" id="override-rm" hidden>Animations are off because your device&rsquo;s reduce-motion setting is on. Use &ldquo;Show animations this visit&rdquo; on the notice, or disable Reduce Motion in system settings.</p>
         <button type="button" class="link-btn" id="override-reset" hidden>Reset to Auto</button>
       </fieldset>
 
