@@ -174,6 +174,13 @@
     if (banner && !banner.hidden && e.detail) render(e.detail, S.state.mode, S.state.source);
   });
 
+  // Refresh copy when motion flips (e.g. "Show animations this visit") while the banner is open.
+  document.addEventListener('adaptive:modechange', function () {
+    if (banner && !banner.hidden && S.state && S.state.profile) {
+      render(S.state.profile, S.state.mode, S.state.source);
+    }
+  });
+
   S.ui.banner = {
     show: function (profile, mode, source) {
       render(profile, mode, source);
