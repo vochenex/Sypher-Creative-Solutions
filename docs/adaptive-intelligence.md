@@ -26,8 +26,11 @@ Weights are sanitized by `normalizeWeights`:
 low coverage is still weak evidence.
 
 Configuration lives in `server/config/modes.json` and the bundled
-`public/js/config.js` (`configVersion: 2026-10-18.3`). Client and server share
-`public/js/score.js`.
+`public/js/config.js` (`configVersion: 2026-10-18.4`). Client and server share
+`public/js/score.js`. Default weights favor frame observation (`fps: 50`) while
+keeping CPU (`30`) slightly above memory (`20`) so browsers that omit
+`deviceMemory` (common on Safari/Firefox) can still reach High with strong
+threads + FPS.
 
 ## F4 — Classification accuracy and confidence
 
@@ -39,7 +42,16 @@ Classification uses score **and** independent evidence gates:
 | **MEDIUM** | Score ≥ medium threshold (40) and coverage ≥ `minCoverageMedium` (0.35), after High gates and constraint demotions |
 | **BASIC** | Everything else, including **no usable signals** (fallback is Basic, never Medium) |
 
-**Confidence** labels:
+CPU threads and device memory are **approximate hints**, not power meters. Either hint
+satisfies `hasHardwareHint`; missing only one API does not block High when the remaining
+signals still clear the score and coverage gates.
+
+Screen size and touch input are **not** treated as weak-hardware judgments on their own.
+The optional `touchCap` only demotes High→Medium on a small coarse-pointer viewport when
+frame evidence is weak; strong FPS + WebGL2 can exempt.
+
+**Confidence** is a heuristic evidence-quality label (coverage + FPS completeness), not a
+calibrated statistical probability:
 
 - `high` — coverage ≥ 0.6 and FPS present
 - `medium` — coverage ≥ 0.35
@@ -48,6 +60,23 @@ Classification uses score **and** independent evidence gates:
 
 Dashboard copy surfaces score, coverage, confidence, and recommended class.
 Manual override remains authoritative for the rendered mode.
+
+### FPS / frame-observation fallback
+
+With default weights (`fps: 50`), a completed frame observation is required to reach the
+High score band: without FPS, maximum earned points from CPU+memory are ~50 and coverage
+is 0.5, so classification lands at **Medium** (estimated) rather than inventing High.
+
+When the benchmark is skipped, hidden, timed out, or otherwise unavailable:
+
+1. `fps` is stored as `null` and the profile is marked estimated
+2. `estimatedHighGuard` applies if a High score would otherwise be claimed without FPS
+3. Remaining hardware hints still drive Medium/Basic honestly (no renormalization to 100)
+4. Visitors can still choose High manually via the override (with the BASIC→High warning)
+
+Browsers that omit `deviceMemory` or `hardwareConcurrency` are not excluded solely for that
+gap: the other present weighted signals still score, and High remains reachable when FPS and
+at least one hardware hint clear the gates.
 
 ## F5 — High-effect loading races and cleanup
 

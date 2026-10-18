@@ -9,7 +9,7 @@
   'use strict';
 
   var SIGNAL_KEYS = ['cpu', 'memory', 'screen', 'webgl', 'fps'];
-  var DEFAULT_WEIGHTS = { cpu: 25, memory: 25, screen: 0, webgl: 0, fps: 50 };
+  var DEFAULT_WEIGHTS = { cpu: 30, memory: 20, screen: 0, webgl: 0, fps: 50 };
 
   function isNum(v) { return typeof v === 'number' && isFinite(v); }
 

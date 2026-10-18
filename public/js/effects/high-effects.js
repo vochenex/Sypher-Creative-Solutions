@@ -422,6 +422,35 @@
       document.querySelectorAll('[data-count]').forEach(function (el) { el.textContent = countFinal(el); });
     },
     setPaused: function (p) { hero.paused = p; if (!p) heroKick(); },
-    isActive: function () { return !!started; }
+    isActive: function () { return !!started; },
+    /** Debug/QA snapshot of live High-effect instances (not merely downloaded scripts). */
+    inspect: function () {
+      var triggers = 0;
+      var tweens = 0;
+      try {
+        if (ScrollTrigger && ScrollTrigger.getAll) triggers = ScrollTrigger.getAll().length;
+      } catch (e) { triggers = -1; }
+      try {
+        if (gsap && gsap.globalTimeline && gsap.globalTimeline.getChildren) {
+          tweens = gsap.globalTimeline.getChildren(true, true, false).length;
+        }
+      } catch (e2) { tweens = -1; }
+      return {
+        moduleLoaded: true,
+        active: !!started,
+        mode: root.getAttribute('data-mode'),
+        motion: root.getAttribute('data-motion'),
+        scrollTriggers: triggers,
+        gsapTweens: tweens,
+        webglContext: !!hero.gl,
+        heroRaf: !!hero.raf,
+        heroLiveClass: !!(hero.canvas && hero.canvas.classList && hero.canvas.classList.contains('is-live')),
+        magnets: magnets.length,
+        tilts: tilts.length,
+        sheetTilt: !!sheetOn,
+        pointerOn: !!pointerOn,
+        hasContext: !!ctx
+      };
+    }
   };
 })(window.Sypher);

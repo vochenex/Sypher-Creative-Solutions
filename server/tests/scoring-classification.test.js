@@ -93,14 +93,14 @@ describe('F13 scoring weights and 0–100 bounds', () => {
 
   it('keeps modes.json and bundled config.js scoring in sync', () => {
     const bundled = fs.readFileSync(path.join(__dirname, '../../public/js/config.js'), 'utf8');
-    assert.match(bundled, /"configVersion": "2026-10-18\.3"/);
+    assert.match(bundled, /"configVersion": "2026-10-18\.4"/);
     assert.match(bundled, /"minCoverageHigh": 0\.6/);
     assert.match(bundled, /"requireHardwareHintForHigh": true/);
     assert.match(bundled, /"requireFpsForHigh": true/);
     assert.match(bundled, /"liveDowngradeCooldownMs": 12000/);
-    assert.equal(modesConfig.configVersion, '2026-10-18.3');
+    assert.equal(modesConfig.configVersion, '2026-10-18.4');
     assert.deepEqual(modesConfig.scoring.weights, {
-      cpu: 25, memory: 25, screen: 0, webgl: 0, fps: 50
+      cpu: 30, memory: 20, screen: 0, webgl: 0, fps: 50
     });
   });
 
@@ -138,18 +138,20 @@ describe('F13 scoring weights and 0–100 bounds', () => {
     {
       name: 'missing memory still scores without inflating',
       partial: { cpuThreads: 8, webgl: 'webgl2', fps: 60 },
+      // quality(8 threads)=0.8 × 30 + 50 fps = 74 → Medium; coverage 0.8
       expectClass: 'MEDIUM',
       maxScore: 74,
-      minCoverage: 0.74,
-      maxCoverage: 0.76
+      minCoverage: 0.79,
+      maxCoverage: 0.81
     },
     {
       name: 'missing CPU still scores without inflating',
       partial: { deviceMemoryGB: 8, webgl: 'webgl2', fps: 60 },
+      // quality(8GB)=0.9 × 20 + 50 = 68 → Medium; coverage 0.7
       expectClass: 'MEDIUM',
       maxScore: 74,
-      minCoverage: 0.74,
-      maxCoverage: 0.76
+      minCoverage: 0.69,
+      maxCoverage: 0.71
     },
     {
       name: 'all signals unavailable falls back to BASIC',
@@ -341,7 +343,7 @@ describe('F4 classification accuracy, confidence, and missing-data handling', ()
       assert.ok(strong.json.score >= 75 && strong.json.score <= 100);
       assert.ok(strong.json.coverage >= 0.99);
       assert.equal(strong.json.confidence, 'high');
-      assert.equal(strong.json.configVersion, '2026-10-18.3');
+      assert.equal(strong.json.configVersion, '2026-10-18.4');
     } finally {
       await close(server);
     }
@@ -358,5 +360,46 @@ describe('F4 classification accuracy, confidence, and missing-data handling', ()
     assert.equal(api.score, local.scored.score);
     assert.equal(api.coverage, local.scored.coverage);
     assert.equal(api.confidence, local.result.confidence);
+  });
+
+  it('missing only deviceMemory does not exclude a strong High candidate', () => {
+    const { scored, result } = run({
+      cpuThreads: 12, deviceMemoryGB: null, webgl: 'webgl2', fps: 60
+    });
+    assert.equal(scored.hasHardwareHint, true);
+    assert.ok(scored.score >= 75, `score ${scored.score}`);
+    assert.ok(scored.coverage >= 0.6);
+    assert.equal(result.cls, 'HIGH');
+  });
+
+  it('missing only hardwareConcurrency keeps honest Medium when memory+FPS cannot clear High', () => {
+    // No threads: memory×20 + fps×50 tops out near 68 with default weights — not invented High.
+    const { scored, result } = run({
+      cpuThreads: null, deviceMemoryGB: 8, webgl: 'webgl2', fps: 60
+    });
+    assert.equal(scored.hasHardwareHint, true);
+    assert.ok(scored.coverage >= 0.6);
+    assert.equal(result.cls, 'MEDIUM');
+    assert.ok(scored.score < 75);
+  });
+
+  it('touch + large viewport does not auto-classify as weak', () => {
+    const { result } = run({
+      cpuThreads: 12, deviceMemoryGB: 8, webgl: 'webgl2', fps: 60,
+      pointerCoarse: true, viewportWidth: 1440
+    });
+    assert.equal(result.cls, 'HIGH');
+    assert.ok(!result.appliedCaps.includes('touchCap'));
+  });
+
+  it('unavailable FPS falls back to estimated Medium for strong hardware (no invented High)', () => {
+    const { scored, result } = run({
+      cpuThreads: 12, deviceMemoryGB: 8, webgl: 'webgl2', fps: null
+    }, WEIGHTS, false);
+    assert.ok(scored.score !== null && scored.score <= 55);
+    assert.ok(scored.coverage <= 0.51);
+    assert.notEqual(result.cls, 'HIGH');
+    assert.equal(result.cls, 'MEDIUM');
+    assert.equal(result.confidence, 'medium');
   });
 });

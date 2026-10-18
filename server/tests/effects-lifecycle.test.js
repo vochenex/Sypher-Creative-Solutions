@@ -117,6 +117,7 @@ describe('F5 High-effect loading races and cleanup', () => {
     assert.match(effectsSrc, /ScrollTrigger\.getAll/);
     assert.match(effectsSrc, /\.kill\(/);
     assert.match(effectsSrc, /isActive:\s*function/);
+    assert.match(effectsSrc, /inspect:\s*function/);
     assert.match(effectsSrc, /ctx\.revert/);
   });
 

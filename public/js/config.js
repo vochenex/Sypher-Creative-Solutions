@@ -1,7 +1,7 @@
 ﻿/* Built-in default copy of server/config/modes.json. Keep both in sync (configVersion). */
 (function (root) {
   var config = {
-  "configVersion": "2026-10-18.3",
+  "configVersion": "2026-10-18.4",
   "modes": {
     "high": {
       "videoBackground": true,
@@ -90,7 +90,7 @@
     "maxConcurrentAnimations": 0
   },
   "scoring": {
-    "weights": { "cpu": 25, "memory": 25, "screen": 0, "webgl": 0, "fps": 50 },
+    "weights": { "cpu": 30, "memory": 20, "screen": 0, "webgl": 0, "fps": 50 },
     "thresholds": { "high": 75, "medium": 40 },
     "minCoverageHigh": 0.6,
     "minCoverageMedium": 0.35,
