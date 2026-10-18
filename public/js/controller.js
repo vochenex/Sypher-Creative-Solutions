@@ -203,6 +203,9 @@
     state.flags = effectiveFlags(state.mode);
     writeRoot();
     applyAssets(state.flags);
+    // Restart the live-FPS grace window after motion is armed so DevTools / cold start
+    // does not immediately offer a Medium downgrade over the opt-in confirmation.
+    if (changed && state.motion === 'full' && liveWatch && liveWatch.reset) liveWatch.reset();
     if (state.ready && (changed || opts.force)) {
       emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags });
     }
