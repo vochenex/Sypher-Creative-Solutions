@@ -91,8 +91,10 @@
     saveData: 'Data Saver is on: lowered one level',
     slowNetwork: 'Slow network: lowered one level',
     lowBattery: 'Low battery, not charging: lowered one level',
-    insufficientData: 'Not enough signals: balanced default',
-    estimatedHighGuard: 'Smoothness test incomplete: HIGH needs 80+'
+    insufficientData: 'Not enough independent evidence: Basic recommended',
+    estimatedHighGuard: 'Frame observation incomplete: High was withheld',
+    lowCoverage: 'Evidence coverage below the High threshold',
+    noHardwareHint: 'High needs a CPU or memory hint in addition to other signals'
   };
 
   function renderChip() {
@@ -123,38 +125,49 @@
 
     var s = p.signals || {};
     var fallback = p.source === 'fallback';
-    set('d-score', p.score === null ? na() : p.score + ' / 100' + (p.estimated ? '<span class="badge">Estimated</span>' : ''));
+    var recommended = p.recommendedClass || p['class'];
+    var cov = typeof p.coverage === 'number' ? Math.round(p.coverage * 100) + '%' : na();
+    var conf = p.confidence ? String(p.confidence) : na();
+    set('d-score', p.score === null ? na() : p.score + ' / 100' + (p.estimated ? '<span class="badge">Estimated</span>' : '') +
+      '<div class="na">Coverage ' + cov + ' · Confidence ' + escapeHtml(conf) + ' · Recommended ' + escapeHtml(C.title(String(recommended).toLowerCase())) + '</div>');
     $('gauge-num').textContent = p.score === null ? '\u2013' : String(p.score);
     $('gauge-value').style.strokeDashoffset = String(157 - 157 * ((p.score || 0) / 100));
-    $('d-why').innerHTML = fallback ? 'We couldn\u2019t read your device information. The site is using MEDIUM mode.' : '<strong>Why this mode?</strong> ' + escapeHtml(S.ui.whyLine(p));
+    $('d-why').innerHTML = fallback
+      ? 'We couldn\u2019t measure this device reliably. The site is using <strong>Basic</strong> as a safe baseline.'
+      : '<strong>Why this mode?</strong> ' + escapeHtml(S.ui.whyLine(p));
 
-    set('d-cpu', typeof s.cpuThreads === 'number' ? s.cpuThreads + ' threads' : na());
+    set('d-cpu', typeof s.cpuThreads === 'number' ? s.cpuThreads + ' threads <span class="na">(reported hint)</span>' : na());
     set('d-mem', typeof s.deviceMemoryGB === 'number' ? s.deviceMemoryGB + ' GB <span class="na">(reported, rounded)</span>' : na());
-    set('d-screen', s.screen ? s.screen.width + ' \u00d7 ' + s.screen.height + ' at ' + s.screen.dpr + 'x' + (p.megapixels ? ' (' + p.megapixels + ' MP)' : '') : na());
-    set('d-fps', typeof s.fps === 'number' ? Math.round(s.fps) + ' fps' : fallback ? na() : na(C.notMeasured));
-    set('d-gl', s.webgl === 'webgl2' ? 'WebGL 2' : s.webgl === 'webgl1' ? 'WebGL 1' : s.webgl === 'none' ? C.notSupported : na());
+    set('d-screen', s.screen ? s.screen.width + ' \u00d7 ' + s.screen.height + ' at ' + s.screen.dpr + 'x' + (p.megapixels ? ' (' + p.megapixels + ' MP)' : '') + ' <span class="na">(layout hint)</span>' : na());
+    set('d-fps', typeof s.fps === 'number' ? Math.round(s.fps) + ' fps <span class="na">(observed)</span>' : fallback ? na() : na(C.notMeasured));
+    set('d-gl', s.webgl === 'webgl2' ? 'WebGL 2 (feature gate)' : s.webgl === 'webgl1' ? 'WebGL 1 (feature gate)' : s.webgl === 'none' ? C.notSupported : na());
 
     var caps = (p.appliedCaps || []).map(function (c) { return capText[c] || c; });
-    var manualNote = st.source === 'manual' && caps.length ? ' (not applied: manual mode)' : '';
+    var manualNote = st.source === 'manual' && caps.length ? ' (recommendation only: manual mode)' : '';
     set('d-caps', caps.length ? escapeHtml(caps.join('; ') + manualNote) : 'None');
 
     var api = S.api.status();
     set('d-src', fallback ? 'Default (detection failed)' : p.confirmed ? 'Automatic, confirmed by server' : api === 'offline' ? 'Local (server unavailable)' : 'Automatic (local)');
     set('d-time', new Date(p.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }));
 
-    var labels = { cpu: 'CPU', memory: 'Memory', screen: 'Screen', webgl: 'Graphics', fps: 'Frame rate' };
+    var labels = { cpu: 'CPU hint', memory: 'Memory hint', screen: 'Screen', webgl: 'Graphics', fps: 'Frame rate' };
     var bars = $('d-bars');
     bars.innerHTML = '';
     ['cpu', 'memory', 'screen', 'webgl', 'fps'].forEach(function (k) {
-      var v = p.breakdown[k], max = p.max[k];
+      var v = p.breakdown ? p.breakdown[k] : null;
+      var max = p.max && p.max[k] != null ? p.max[k] : 0;
       var li = document.createElement('li');
-      li.innerHTML = '<span>' + labels[k] + '</span><span class="bars__track"><span class="bars__fill"></span></span><span class="bars__val">' + (v === null ? 'n/a' : v + '/' + max) + '</span>';
+      var valLabel = v === null ? 'n/a' : (max > 0 ? (Math.round(v * 10) / 10) + '/' + Math.round(max) : 'gate');
+      li.innerHTML = '<span>' + labels[k] + '</span><span class="bars__track"><span class="bars__fill"></span></span><span class="bars__val">' + valLabel + '</span>';
       bars.appendChild(li);
       var fill = li.querySelector('.bars__fill');
-      requestAnimationFrame(function () { fill.style.width = (v === null ? 0 : (v / max) * 100) + '%'; });
+      requestAnimationFrame(function () {
+        fill.style.width = (v === null || max <= 0 ? 0 : Math.min(100, (v / max) * 100)) + '%';
+      });
     });
-    var missing = ['cpu', 'memory', 'screen', 'webgl', 'fps'].filter(function (k) { return p.breakdown[k] === null; }).length;
-    $('d-rescale').textContent = missing && !fallback ? 'Score rescaled because ' + missing + ' signal' + (missing > 1 ? 's were' : ' was') + ' not available.' : '';
+    $('d-rescale').textContent = typeof p.coverage === 'number' && p.coverage < 1 && !fallback
+      ? 'Missing signals lower evidence coverage (' + Math.round(p.coverage * 100) + '%). They do not inflate the score.'
+      : '';
   }
 
   function escapeHtml(t) {

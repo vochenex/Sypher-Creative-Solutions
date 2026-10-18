@@ -376,9 +376,16 @@
   var started = false;
 
   S.highEffects = {
-    start: function (flags) {
-      var motion = root.getAttribute('data-motion') === 'full';
-      if (!motion) { this.stop(); release(); return; }
+    start: function (flags, meta) {
+      flags = flags || {};
+      meta = meta || {};
+      // Refuse incompatible states (Basic/Medium, reduced motion, or stale generation).
+      if (root.getAttribute('data-mode') !== 'high') { this.stop(); return false; }
+      if (root.getAttribute('data-motion') !== 'full') { this.stop(); release(); return false; }
+      if (typeof meta.getEpoch === 'function' && meta.epoch != null && meta.getEpoch() !== meta.epoch) {
+        this.stop();
+        return false;
+      }
 
       if (flags.webglScene) heroStart(); else heroStop();
       hero.paused = S.heroPaused ? S.heroPaused() : false;
@@ -395,6 +402,7 @@
         buildScenes(flags);
         window.addEventListener('load', function () { ScrollTrigger.refresh(); }, { once: true });
       }
+      return true;
     },
     stop: function () {
       started = false;
@@ -406,8 +414,14 @@
       sheetTiltStop();
       header.classList.remove('is-tucked');
       if (ctx) { ctx.revert(); ctx = null; }
+      try {
+        if (ScrollTrigger && ScrollTrigger.getAll) {
+          ScrollTrigger.getAll().forEach(function (t) { t.kill(); });
+        }
+      } catch (e) { /* ignore */ }
       document.querySelectorAll('[data-count]').forEach(function (el) { el.textContent = countFinal(el); });
     },
-    setPaused: function (p) { hero.paused = p; if (!p) heroKick(); }
+    setPaused: function (p) { hero.paused = p; if (!p) heroKick(); },
+    isActive: function () { return !!started; }
   };
 })(window.Sypher);

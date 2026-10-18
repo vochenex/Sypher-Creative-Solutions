@@ -1,7 +1,7 @@
 ﻿/* Built-in default copy of server/config/modes.json. Keep both in sync (configVersion). */
 (function (root) {
   var config = {
-  "configVersion": "2026-10-13.1",
+  "configVersion": "2026-10-18.3",
   "modes": {
     "high": {
       "videoBackground": true,
@@ -90,8 +90,12 @@
     "maxConcurrentAnimations": 0
   },
   "scoring": {
-    "weights": { "cpu": 25, "memory": 20, "screen": 10, "webgl": 15, "fps": 30 },
-    "thresholds": { "high": 70, "medium": 40, "estimatedHigh": 80 },
+    "weights": { "cpu": 25, "memory": 25, "screen": 0, "webgl": 0, "fps": 50 },
+    "thresholds": { "high": 75, "medium": 40 },
+    "minCoverageHigh": 0.6,
+    "minCoverageMedium": 0.35,
+    "requireHardwareHintForHigh": true,
+    "requireFpsForHigh": true,
     "touchCap": { "maxViewportPx": 1023, "exemptFps": 58, "exemptWebgl": "webgl2" },
     "batteryLowLevel": 0.2
   },
@@ -109,7 +113,8 @@
     "toastMs": 6000,
     "liveDowngradeFps": 24,
     "liveDowngradeWindows": 3,
-    "liveDowngradeGraceMs": 5000
+    "liveDowngradeGraceMs": 5000,
+    "liveDowngradeCooldownMs": 12000
   }
 };
   root.Sypher = root.Sypher || {};
