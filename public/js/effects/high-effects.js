@@ -9,7 +9,12 @@
   gsap.registerPlugin(ScrollTrigger);
 
   var root = document.documentElement;
-  var finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+  var finePointer = null;
+  try {
+    if (window.matchMedia) finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+  } catch (e) {
+    finePointer = null;
+  }
   var EASE = 'expo.out';
 
   function release() {
@@ -378,9 +383,9 @@
       if (flags.webglScene) heroStart(); else heroStop();
       hero.paused = S.heroPaused ? S.heroPaused() : false;
 
-      pointerOn = !!flags.cursorEffects && finePointer.matches;
+      pointerOn = !!flags.cursorEffects && !!(finePointer && finePointer.matches);
       if (pointerOn) sheetTiltStart(); else sheetTiltStop();
-      if (flags.hoverEffects === 'tilt-preview' && finePointer.matches) {
+      if (flags.hoverEffects === 'tilt-preview' && finePointer && finePointer.matches) {
         if (!magnets.length) magnetsStart();
         tiltsStart();
       } else { magnetsStop(); tiltsStop(); }

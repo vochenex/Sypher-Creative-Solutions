@@ -4,3 +4,7 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 .screens/
+
+# Runtime personal data — never commit visitor inquiries
+server/data/inquiries.json
+server/data/inquiries.json.tmp

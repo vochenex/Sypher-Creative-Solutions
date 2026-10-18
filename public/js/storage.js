@@ -10,43 +10,92 @@
     downgradeDismissed: 'sypher.downgradeDismissed'
   };
   var MODES = ['auto', 'high', 'medium', 'basic'];
+  var CLASSES = ['HIGH', 'MEDIUM', 'BASIC'];
   var failedWrite = false;
 
   function read(store, key) {
-    try { return window[store].getItem(key); } catch { return null; }
+    try {
+      if (!window[store]) return null;
+      return window[store].getItem(key);
+    } catch (e) {
+      return null;
+    }
   }
 
   function write(store, key, value) {
     try {
+      if (!window[store]) {
+        failedWrite = true;
+        return false;
+      }
       if (value === null) window[store].removeItem(key);
       else window[store].setItem(key, value);
       return true;
-    } catch {
+    } catch (e) {
       failedWrite = true;
       return false;
     }
   }
 
+  function isPlainObject(v) {
+    return !!v && typeof v === 'object' && !Array.isArray(v);
+  }
+
+  /** Reject corrupted, incomplete, or unsupported cached profiles. */
+  function validateProfile(p) {
+    if (!isPlainObject(p)) return null;
+    if (typeof p.timestamp !== 'number' || !Number.isFinite(p.timestamp) || p.timestamp > Date.now() + 60000) return null;
+    if (CLASSES.indexOf(p['class']) < 0) return null;
+    if (!(typeof p.score === 'number' || p.score === null)) return null;
+    if (p.breakdown != null && !isPlainObject(p.breakdown)) return null;
+    if (p.signals != null && !isPlainObject(p.signals)) return null;
+    if (p.configVersion != null && typeof p.configVersion !== 'string') return null;
+    var expectedVersion = S.config && S.config.configVersion;
+    if (expectedVersion && p.configVersion && p.configVersion !== expectedVersion) return null;
+    return p;
+  }
+
   S.storage = {
     KEYS: KEYS,
+    MODES: MODES,
 
     getOverride: function () {
       var v = read('localStorage', KEYS.override);
       return MODES.indexOf(v) >= 0 ? v : 'auto';
     },
-    setOverride: function (mode) { return write('localStorage', KEYS.override, mode); },
+    setOverride: function (mode) {
+      if (MODES.indexOf(mode) < 0) return false;
+      return write('localStorage', KEYS.override, mode);
+    },
 
     getProfile: function (ttlHours) {
       var raw = read('localStorage', KEYS.profile);
       if (!raw) return null;
       try {
-        var p = JSON.parse(raw);
-        if (!p || typeof p.timestamp !== 'number') return null;
-        if (Date.now() - p.timestamp > ttlHours * 3600 * 1000) return null;
+        var p = validateProfile(JSON.parse(raw));
+        if (!p) {
+          write('localStorage', KEYS.profile, null);
+          return null;
+        }
+        var ttl = typeof ttlHours === 'number' ? ttlHours : 24;
+        if (Date.now() - p.timestamp > ttl * 3600 * 1000) {
+          write('localStorage', KEYS.profile, null);
+          return null;
+        }
         return p;
-      } catch { return null; }
+      } catch (e) {
+        write('localStorage', KEYS.profile, null);
+        return null;
+      }
     },
-    setProfile: function (profile) { return write('localStorage', KEYS.profile, JSON.stringify(profile)); },
+    setProfile: function (profile) {
+      var safe = validateProfile(profile);
+      if (!safe) return false;
+      if (S.config && S.config.configVersion && !safe.configVersion) {
+        safe = Object.assign({}, safe, { configVersion: S.config.configVersion });
+      }
+      return write('localStorage', KEYS.profile, JSON.stringify(safe));
+    },
     clearProfile: function () { return write('localStorage', KEYS.profile, null); },
 
     getDashboardOpen: function () { return read('localStorage', KEYS.dashboardOpen) === 'true'; },
@@ -58,6 +107,9 @@
     isDowngradeDismissed: function () { return read('sessionStorage', KEYS.downgradeDismissed) === '1'; },
     dismissDowngrade: function () { return write('sessionStorage', KEYS.downgradeDismissed, '1'); },
 
-    writeFailed: function () { return failedWrite; }
+    writeFailed: function () { return failedWrite; },
+
+    /* Exposed for unit tests */
+    _validateProfile: validateProfile
   };
 })(window.Sypher);

@@ -1,84 +1,81 @@
-/* Analysis Screen and Result Banner. */
+/* Nonblocking analysis status and result banner. */
 (function (S) {
   'use strict';
 
   var C = S.copy;
   S.ui = S.ui || {};
 
-  /* ---------- Analysis Screen ---------- */
+  /* ---------- Analysis status (never blocks the page) ---------- */
 
   var el = document.getElementById('analysis');
-  var bar = document.getElementById('analysis-bar');
-  var progressEl = el.querySelector('.progress');
   var stepEl = document.getElementById('analysis-step');
-  var skipBtn = document.getElementById('analysis-skip');
-  var mainEls = [document.getElementById('main'), document.getElementById('site-header'), document.querySelector('.site-footer')];
-  var skipHandler = null, skipTimer = null, open = false;
+  var titleEl = document.getElementById('analysis-title');
+  var open = false;
+  var maxLifeTimer = null;
 
-  function setInert(on) {
-    mainEls.forEach(function (n) {
-      if (!n) return;
-      if (on) n.setAttribute('inert', ''); else n.removeAttribute('inert');
-    });
+  function clearMaxLife() {
+    if (maxLifeTimer) {
+      clearTimeout(maxLifeTimer);
+      maxLifeTimer = null;
+    }
   }
-
-  function onKey(e) {
-    if (e.key === 'Escape' && skipBtn.classList.contains('is-visible')) skip();
-  }
-
-  function skip() {
-    if (!open || !skipHandler) return;
-    var h = skipHandler;
-    skipHandler = null;
-    h();
-  }
-
-  document.addEventListener('adaptive:progress', function (e) {
-    if (!open) return;
-    var d = e.detail;
-    bar.style.width = d.percent + '%';
-    progressEl.setAttribute('aria-valuenow', String(d.percent));
-    var label = C.steps[d.step] || '';
-    progressEl.setAttribute('aria-valuetext', d.percent + ' percent, ' + label.toLowerCase());
-    if (label && stepEl.textContent !== label) stepEl.textContent = label;
-  });
-
-  skipBtn.addEventListener('click', skip);
-  document.querySelector('.skip-link').addEventListener('click', function () { skip(); });
 
   S.ui.analysis = {
-    show: function (onSkip) {
+    show: function () {
       open = true;
-      skipHandler = onSkip;
+      clearMaxLife();
+      if (!el) return null;
       el.hidden = false;
       el.classList.add('is-open');
-      el.classList.remove('is-leaving');
-      bar.style.width = '0%';
-      skipBtn.classList.remove('is-visible');
-      setInert(true);
-      document.addEventListener('keydown', onKey);
-      skipTimer = setTimeout(function () { skipBtn.classList.add('is-visible'); }, S.config.timing.analysisSkipVisibleMs);
-      return document.getElementById('bench-canvas');
+      el.classList.remove('is-done');
+      if (titleEl) titleEl.textContent = 'Analyzing Device Performance\u2026';
+      if (stepEl) stepEl.textContent = 'Checking your device quietly in the background.';
+      // Fail safe: never leave the status stuck if init aborts unexpectedly.
+      var limit = (S.config && S.config.timing && S.config.timing.analysisHardLimitMs) || 2500;
+      maxLifeTimer = setTimeout(function () {
+        if (!open) return;
+        if (titleEl) titleEl.textContent = 'Continuing with a safe baseline';
+        if (stepEl) stepEl.textContent = '';
+        S.ui.analysis.hide();
+      }, limit + 2000);
+      // Off-DOM canvas keeps the page usable while the benchmark runs.
+      return document.createElement('canvas');
     },
     hide: function (done) {
-      clearTimeout(skipTimer);
-      document.removeEventListener('keydown', onKey);
-      var instant = !open || !skipHandler || document.documentElement.getAttribute('data-motion') === 'reduced';
-      var finish = function () {
+      clearMaxLife();
+      if (el) {
+        el.classList.remove('is-open');
+        el.classList.add('is-done');
+        // Keep a brief polite confirmation in the live region, then clear.
+        setTimeout(function () {
+          if (!open) return;
+          open = false;
+          el.hidden = true;
+          el.classList.remove('is-done');
+        }, 1200);
+      } else {
         open = false;
-        skipHandler = null;
-        el.classList.remove('is-open', 'is-leaving');
-        el.hidden = true;
-        setInert(false);
-        if (done) done();
-      };
-      if (instant) return finish();
-      setTimeout(function () {
-        el.classList.add('is-leaving');
-        setTimeout(finish, 160);
-      }, 150);
+      }
+      if (done) done();
+    },
+    setDoneMessage: function (text) {
+      if (titleEl) titleEl.textContent = text || 'Experience ready';
+      if (stepEl) stepEl.textContent = '';
     }
   };
+
+  document.addEventListener('adaptive:progress', function (e) {
+    if (!open || !stepEl) return;
+    var labels = {
+      signals: 'Reading available device signals',
+      webgl: 'Checking graphics support',
+      benchmark: 'Observing frame timing',
+      scoring: 'Choosing a recommended mode',
+      done: 'Finishing up'
+    };
+    var label = labels[e.detail && e.detail.step];
+    if (label) stepEl.textContent = label;
+  });
 
   /* ---------- Result Banner ---------- */
 
@@ -92,12 +89,16 @@
     if (caps.length) {
       phrase = C.whyCap[caps[0]];
     } else {
-      var keys = ['fps', 'cpu', 'memory', 'webgl', 'screen'].filter(function (k) { return profile.breakdown[k] !== null && profile.breakdown[k] !== undefined; });
+      var keys = ['fps', 'cpu', 'memory', 'webgl', 'screen'].filter(function (k) {
+        return profile.breakdown && profile.breakdown[k] !== null && profile.breakdown[k] !== undefined;
+      });
       var ratio = function (k) { return profile.breakdown[k] / profile.max[k]; };
       var high = profile['class'] === 'HIGH';
       keys.sort(function (a, b) { return high ? ratio(b) - ratio(a) : ratio(a) - ratio(b); });
       var picks = keys.slice(0, 2).map(function (k) { return (high ? C.whyHigh : C.whyLow)[k]; });
-      picks = picks.map(function (t, i) { return i === 0 ? t.charAt(0).toUpperCase() + t.slice(1) : t.charAt(0).toLowerCase() + t.slice(1); });
+      picks = picks.map(function (t, i) {
+        return i === 0 ? t.charAt(0).toUpperCase() + t.slice(1) : t.charAt(0).toLowerCase() + t.slice(1);
+      });
       phrase = picks.join(' and ');
     }
     if (!phrase) return '';
@@ -107,7 +108,7 @@
 
   function dismiss() {
     clearTimeout(bannerTimer);
-    banner.hidden = true;
+    if (banner) banner.hidden = true;
     var p = S.state.profile;
     if (p && p.estimated && p.source !== 'fallback' && !estimatedShown) {
       estimatedShown = true;
@@ -126,12 +127,23 @@
     remaining = Math.max(1500, remaining - (Date.now() - startedAt));
   }
 
-  banner.addEventListener('mouseenter', pauseTimer);
-  banner.addEventListener('mouseleave', function () { if (!banner.hidden) startTimer(remaining); });
-  banner.addEventListener('focusin', pauseTimer);
-  banner.addEventListener('focusout', function (e) { if (!banner.contains(e.relatedTarget) && !banner.hidden) startTimer(remaining); });
+  if (banner) {
+    banner.addEventListener('mouseenter', pauseTimer);
+    banner.addEventListener('mouseleave', function () { if (!banner.hidden) startTimer(remaining); });
+    banner.addEventListener('focusin', pauseTimer);
+    banner.addEventListener('focusout', function (e) {
+      if (!banner.contains(e.relatedTarget) && !banner.hidden) startTimer(remaining);
+    });
+    banner.addEventListener('click', function (e) {
+      var act = e.target.closest('[data-act]');
+      if (!act) return;
+      if (act.getAttribute('data-act') === 'dismiss') dismiss();
+      else { dismiss(); S.ui.dashboard.open({ focus: 'override' }); }
+    });
+  }
 
   function render(profile, mode, source) {
+    if (!banner) return;
     var cls = profile['class'];
     var lines = [];
     if (profile.source === 'fallback') lines.push(C.resultFallback);
@@ -153,22 +165,20 @@
     banner.querySelector('.result-banner__body').textContent = lines.join(' ') + (why ? ' Why: ' + why : '');
   }
 
-  banner.addEventListener('click', function (e) {
-    var act = e.target.closest('[data-act]');
-    if (!act) return;
-    if (act.getAttribute('data-act') === 'dismiss') dismiss();
-    else { dismiss(); S.ui.dashboard.open({ focus: 'override' }); }
-  });
-
   document.addEventListener('adaptive:profileupdate', function (e) {
-    if (!banner.hidden && e.detail) render(e.detail, S.state.mode, S.state.source);
+    if (banner && !banner.hidden && e.detail) render(e.detail, S.state.mode, S.state.source);
   });
 
   S.ui.banner = {
     show: function (profile, mode, source) {
       render(profile, mode, source);
-      banner.hidden = false;
-      startTimer(S.config.timing.resultBannerMs);
+      if (banner) {
+        banner.hidden = false;
+        startTimer(S.config.timing.resultBannerMs);
+      }
+      if (S.ui.analysis && S.ui.analysis.setDoneMessage) {
+        S.ui.analysis.setDoneMessage('Using ' + S.copy.title(mode) + ' experience');
+      }
     },
     hide: dismiss
   };

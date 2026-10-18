@@ -27,14 +27,8 @@ class HttpError extends Error {
   }
 }
 
-function readJson(req, limitBytes) {
+function readRawBody(req, limitBytes) {
   return new Promise((resolve, reject) => {
-    const type = (req.headers['content-type'] || '').split(';')[0].trim();
-    if (type !== 'application/json') {
-      reject(new HttpError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json'));
-      req.resume();
-      return;
-    }
     let size = 0;
     const chunks = [];
     req.on('data', (chunk) => {
@@ -46,14 +40,48 @@ function readJson(req, limitBytes) {
       }
       chunks.push(chunk);
     });
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      } catch {
-        reject(new HttpError(400, 'INVALID_PAYLOAD', 'Body is not valid JSON'));
-      }
-    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
+  });
+}
+
+function contentType(req) {
+  return (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+}
+
+function readJson(req, limitBytes) {
+  if (contentType(req) !== 'application/json') {
+    req.resume();
+    return Promise.reject(new HttpError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json'));
+  }
+  return readRawBody(req, limitBytes).then((buf) => {
+    try {
+      return JSON.parse(buf.toString('utf8') || 'null');
+    } catch {
+      throw new HttpError(400, 'INVALID_PAYLOAD', 'Body is not valid JSON');
+    }
+  });
+}
+
+/** JSON or URL-encoded form bodies for progressive-enhancement endpoints. */
+function readJsonOrForm(req, limitBytes) {
+  const type = contentType(req);
+  return readRawBody(req, limitBytes).then((buf) => {
+    const text = buf.toString('utf8');
+    if (type === 'application/json') {
+      try {
+        return { kind: 'json', body: JSON.parse(text || 'null') };
+      } catch {
+        throw new HttpError(400, 'INVALID_PAYLOAD', 'Body is not valid JSON');
+      }
+    }
+    if (type === 'application/x-www-form-urlencoded') {
+      const params = new URLSearchParams(text);
+      const body = {};
+      for (const [key, value] of params.entries()) body[key] = value;
+      return { kind: 'form', body };
+    }
+    throw new HttpError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json or application/x-www-form-urlencoded');
   });
 }
 
@@ -76,4 +104,11 @@ function createRateLimiter(limitPerMinute) {
   };
 }
 
-module.exports = { sendJson, sendError, HttpError, readJson, createRateLimiter };
+module.exports = {
+  sendJson,
+  sendError,
+  HttpError,
+  readJson,
+  readJsonOrForm,
+  createRateLimiter
+};

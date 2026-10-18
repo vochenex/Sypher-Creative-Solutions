@@ -306,22 +306,116 @@
     heroPause.hidden = !moving;
   }
 
-  /* ---------- Contact form (works without effects) ---------- */
-  var form = $('contact-form'), formStatus = $('form-status');
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
+  /* ---------- Contact form (honest server acceptance only) ---------- */
+  var form = $('contact-form'), formStatus = $('form-status'), submitBtn = form && form.querySelector('[type="submit"]');
+  var submitting = false;
+  var requestIdInput = $('f-request-id');
+
+  function ensureRequestId() {
+    if (!requestIdInput) return '';
+    if (!requestIdInput.value) {
+      requestIdInput.value = 'req_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+    return requestIdInput.value;
+  }
+
+  function setFormStatus(message, tone) {
+    if (!formStatus) return;
+    formStatus.textContent = message || '';
+    formStatus.setAttribute('data-tone', tone || 'info');
+  }
+
+  function setSubmitting(on) {
+    submitting = on;
+    if (submitBtn) {
+      submitBtn.disabled = !!on;
+      submitBtn.setAttribute('aria-busy', String(!!on));
+      if (!submitBtn.dataset.label) submitBtn.dataset.label = submitBtn.textContent;
+      submitBtn.textContent = on ? 'Sending…' : submitBtn.dataset.label;
+    }
+  }
+
+  function validateContact() {
     var ok = true;
-    [['f-name', 'Please enter your name.'], ['f-email', 'Please enter a valid email address.'], ['f-msg', 'Please tell us a little about your project.']].forEach(function (pair) {
+    [
+      ['f-name', 'Please enter your name.'],
+      ['f-email', 'Please enter a valid email address.'],
+      ['f-msg', 'Please tell us a little about your project.']
+    ].forEach(function (pair) {
       var input = $(pair[0]), err = $(pair[0] + '-err');
+      if (!input || !err) return;
       var valid = input.value.trim() !== '' && (input.type !== 'email' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim()));
       err.textContent = valid ? '' : pair[1];
       input.setAttribute('aria-invalid', String(!valid));
       if (!valid && ok) { input.focus(); ok = false; }
     });
-    if (!ok) return;
-    form.reset();
-    formStatus.textContent = 'Thanks! Your message is on its way. We reply within 1 business day.';
-  });
+    return ok;
+  }
+
+  function applyInquiryQueryStatus() {
+    try {
+      var params = new URLSearchParams(location.search);
+      var inquiry = params.get('inquiry');
+      if (!inquiry || !formStatus) return;
+      if (inquiry === 'saved') {
+        setFormStatus('Inquiry saved on the server. Email was not sent from this demonstration environment.', 'success');
+      } else if (inquiry === 'duplicate') {
+        setFormStatus('That inquiry was already received. Your form values were kept.', 'warning');
+      } else {
+        setFormStatus('We could not save your inquiry. Please check the fields and try again.', 'error');
+      }
+    } catch (e) { /* ignore */ }
+  }
+  applyInquiryQueryStatus();
+
+  if (form) {
+    ensureRequestId();
+    form.addEventListener('submit', function (e) {
+      // When fetch is unavailable, allow native POST to /api/inquiries (form-urlencoded).
+      if (typeof fetch !== 'function' || !S.api || !S.api.postInquiry) {
+        if (!validateContact()) e.preventDefault();
+        else ensureRequestId();
+        return;
+      }
+      e.preventDefault();
+      if (submitting) return;
+      if (!validateContact()) {
+        setFormStatus('Please correct the highlighted fields.', 'error');
+        return;
+      }
+      setSubmitting(true);
+      setFormStatus('Saving your inquiry…', 'info');
+      var payload = {
+        name: $('f-name').value.trim(),
+        email: $('f-email').value.trim(),
+        service: $('f-service') ? $('f-service').value : '',
+        budget: $('f-budget') ? $('f-budget').value : '',
+        message: $('f-msg').value.trim(),
+        company_website: $('f-company') ? $('f-company').value : '',
+        clientRequestId: ensureRequestId()
+      };
+      S.api.postInquiry(payload).then(function (res) {
+        setSubmitting(false);
+        form.reset();
+        if (requestIdInput) requestIdInput.value = '';
+        ensureRequestId();
+        setFormStatus(
+          (res && res.message) || 'Inquiry saved on the server. Email was not sent from this demonstration environment.',
+          'success'
+        );
+      }, function (err) {
+        setSubmitting(false);
+        // Preserve field values on failure (no reset).
+        if (err && err.message === 'DUPLICATE_SUBMISSION') {
+          setFormStatus('That inquiry was already received. You can edit your message and try again.', 'warning');
+        } else if (err && (err.message === 'TIMEOUT' || err.message === 'NETWORK' || err.message === 'NO_FETCH')) {
+          setFormStatus('We could not reach the server. Your message is still in the form — please try again.', 'error');
+        } else {
+          setFormStatus((err && err.serverMessage) || 'We could not save your inquiry. Your message is still in the form.', 'error');
+        }
+      });
+    });
+  }
 
   $('year').textContent = String(new Date().getFullYear());
 
