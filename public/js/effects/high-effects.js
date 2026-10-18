@@ -419,6 +419,12 @@
           ScrollTrigger.getAll().forEach(function (t) { t.kill(); });
         }
       } catch (e) { /* ignore */ }
+      try {
+        // Drop any leftover High timelines so Basic/Medium do not keep animating.
+        if (gsap && gsap.globalTimeline && gsap.globalTimeline.getChildren) {
+          gsap.globalTimeline.getChildren(true, true, true).forEach(function (tw) { tw.kill(); });
+        }
+      } catch (e2) { /* ignore */ }
       document.querySelectorAll('[data-count]').forEach(function (el) { el.textContent = countFinal(el); });
     },
     setPaused: function (p) { hero.paused = p; if (!p) heroKick(); },
