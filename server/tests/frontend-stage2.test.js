@@ -66,7 +66,8 @@ describe('Stage 2 frontend contracts', () => {
   it('wires the contact form to the inquiry endpoint with honest demo copy', async () => {
     const res = await get(port, '/');
     assert.match(res.body, /action="\/api\/inquiries"/);
-    assert.match(res.body, /Demo note: inquiries are saved/);
+    assert.match(res.body, /Privacy \/ demo note/);
+    assert.match(res.body, /are not emailed/i);
     assert.doesNotMatch(res.body, /Your message is on its way/);
   });
 

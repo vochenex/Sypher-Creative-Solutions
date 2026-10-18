@@ -113,7 +113,7 @@ async function handleApi(req, res, url) {
       let parsed;
       try {
         parsed = await readJsonOrForm(req, 12 * 1024);
-        const result = inquiries.create(parsed.body);
+        const result = await inquiries.create(parsed.body);
         if (parsed.kind === 'form') {
           // Progressive enhancement: redirect back with an honest saved status (not email delivery).
           res.writeHead(303, Object.assign({ Location: '/?inquiry=saved#contact' }, SECURITY_HEADERS));
@@ -121,6 +121,10 @@ async function handleApi(req, res, url) {
         }
         return sendJson(res, 201, result);
       } catch (err) {
+        // Log only safe codes — never inquiry bodies (name/email/message).
+        if (!(err instanceof HttpError)) {
+          console.error('[inquiries] unexpected error:', err && err.code ? err.code : 'unknown');
+        }
         if (parsed && parsed.kind === 'form') {
           const code = err instanceof HttpError && err.status === 409 ? 'duplicate' : 'error';
           res.writeHead(303, Object.assign({ Location: '/?inquiry=' + code + '#contact' }, SECURITY_HEADERS));

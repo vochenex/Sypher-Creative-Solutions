@@ -4,7 +4,6 @@ const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
-const os = require('node:os');
 const path = require('node:path');
 
 const inquiries = require('../routes/inquiries');
@@ -42,26 +41,22 @@ function request(port, { method = 'GET', path: reqPath = '/', headers = {}, body
   });
 }
 
+function resetStore() {
+  fs.mkdirSync(path.dirname(inquiries.DATA_FILE), { recursive: true });
+  if (fs.existsSync(inquiries.DATA_FILE)) fs.unlinkSync(inquiries.DATA_FILE);
+}
+
 describe('inquiry route validation', () => {
-  let original;
-  let tempFile;
-
-  before(() => {
-    original = fs.readFileSync(inquiries.DATA_FILE, 'utf8');
-  });
-
   beforeEach(() => {
-    tempFile = path.join(os.tmpdir(), 'sypher-inq-' + Date.now() + '.json');
-    fs.writeFileSync(inquiries.DATA_FILE, '[]');
+    resetStore();
   });
 
   after(() => {
-    fs.writeFileSync(inquiries.DATA_FILE, original);
-    if (tempFile && fs.existsSync(tempFile)) fs.rmSync(tempFile, { force: true });
+    resetStore();
   });
 
-  it('accepts a valid inquiry and reports saved (not emailed)', () => {
-    const result = inquiries.create({
+  it('accepts a valid inquiry and reports saved (not emailed)', async () => {
+    const result = await inquiries.create({
       name: 'Ada Lovelace',
       email: 'ada@example.com',
       message: 'We need a new brand system.',
@@ -77,15 +72,15 @@ describe('inquiry route validation', () => {
     assert.equal(stored[0].email, 'ada@example.com');
   });
 
-  it('rejects missing required fields', () => {
-    assert.throws(
+  it('rejects missing required fields', async () => {
+    await assert.rejects(
       () => inquiries.create({ name: 'A', email: 'bad', message: '' }),
       (err) => err instanceof HttpError && err.status === 400
     );
   });
 
-  it('rejects honeypot submissions', () => {
-    assert.throws(
+  it('rejects honeypot submissions without writing the store', async () => {
+    await assert.rejects(
       () => inquiries.create({
         name: 'Bot',
         email: 'bot@example.com',
@@ -94,38 +89,55 @@ describe('inquiry route validation', () => {
       }),
       (err) => err instanceof HttpError && err.status === 400
     );
+    assert.equal(fs.existsSync(inquiries.DATA_FILE), false);
   });
 
-  it('rejects duplicate clientRequestId', () => {
+  it('rejects duplicate clientRequestId', async () => {
     const payload = {
       name: 'Ada',
       email: 'ada@example.com',
       message: 'Hello again',
       clientRequestId: 'req_dup_same'
     };
-    inquiries.create(payload);
-    assert.throws(
+    await inquiries.create(payload);
+    await assert.rejects(
       () => inquiries.create(payload),
       (err) => err instanceof HttpError && err.status === 409
     );
+  });
+
+  it('serializes concurrent writes without losing records', async () => {
+    const jobs = [];
+    for (let i = 0; i < 12; i++) {
+      jobs.push(inquiries.create({
+        name: 'User ' + i,
+        email: 'user' + i + '@example.com',
+        message: 'Concurrent message ' + i,
+        clientRequestId: 'req_concurrent_' + i
+      }));
+    }
+    const results = await Promise.all(jobs);
+    assert.equal(results.length, 12);
+    const stored = JSON.parse(fs.readFileSync(inquiries.DATA_FILE, 'utf8'));
+    assert.equal(stored.length, 12);
+    const emails = new Set(stored.map((r) => r.email));
+    assert.equal(emails.size, 12);
   });
 });
 
 describe('inquiry HTTP API', () => {
   let server;
   let port;
-  let original;
 
   before(async () => {
-    original = fs.readFileSync(inquiries.DATA_FILE, 'utf8');
-    fs.writeFileSync(inquiries.DATA_FILE, '[]');
+    resetStore();
     server = createServer();
     port = await listen(server);
   });
 
   after(async () => {
     await close(server);
-    fs.writeFileSync(inquiries.DATA_FILE, original);
+    resetStore();
   });
 
   it('POST /api/inquiries JSON returns 201 with saved delivery', async () => {
@@ -179,16 +191,34 @@ describe('inquiry HTTP API', () => {
     assert.equal(res.status, 400);
   });
 
-  it('does not expose a public inquiry listing route', async () => {
-    const res = await request(port, { path: '/api/inquiries' });
-    assert.equal(res.status, 404);
+  it('does not expose inquiry records over HTTP', async () => {
+    const blocked = [
+      '/api/inquiries',
+      '/api/inquiries/',
+      '/data/inquiries.json',
+      '/server/data/inquiries.json',
+      '/..%2Fserver%2Fdata%2Finquiries.json'
+    ];
+    for (const p of blocked) {
+      const res = await request(port, { path: p });
+      assert.ok([403, 404].includes(res.status), p + ' => ' + res.status);
+      assert.doesNotMatch(res.body.toString('utf8'), /@example\.com|Grace Hopper|Ada Lovelace/i);
+    }
   });
 
   it('still serves the homepage after inquiry traffic', async () => {
     const res = await request(port, { path: '/' });
     assert.equal(res.status, 200);
     assert.match(res.body.toString('utf8'), /contact-form/);
-    assert.match(res.body.toString('utf8'), /Demo note/);
+    assert.match(res.body.toString('utf8'), /Privacy \/ demo note/);
     assert.doesNotMatch(res.body.toString('utf8'), /Your message is on its way/);
+  });
+});
+
+describe('inquiry privacy packaging', () => {
+  it('ignores the runtime inquiries file in git', () => {
+    const ignore = fs.readFileSync(path.join(__dirname, '../../.gitignore'), 'utf8');
+    assert.match(ignore, /server\/data\/inquiries\.json/);
+    assert.equal(fs.existsSync(path.join(__dirname, '../data/README.md')), true);
   });
 });

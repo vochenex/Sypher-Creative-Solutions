@@ -11,20 +11,38 @@
   var stepEl = document.getElementById('analysis-step');
   var titleEl = document.getElementById('analysis-title');
   var open = false;
+  var maxLifeTimer = null;
+
+  function clearMaxLife() {
+    if (maxLifeTimer) {
+      clearTimeout(maxLifeTimer);
+      maxLifeTimer = null;
+    }
+  }
 
   S.ui.analysis = {
     show: function () {
       open = true;
+      clearMaxLife();
       if (!el) return null;
       el.hidden = false;
       el.classList.add('is-open');
       el.classList.remove('is-done');
       if (titleEl) titleEl.textContent = 'Analyzing Device Performance\u2026';
       if (stepEl) stepEl.textContent = 'Checking your device quietly in the background.';
+      // Fail safe: never leave the status stuck if init aborts unexpectedly.
+      var limit = (S.config && S.config.timing && S.config.timing.analysisHardLimitMs) || 2500;
+      maxLifeTimer = setTimeout(function () {
+        if (!open) return;
+        if (titleEl) titleEl.textContent = 'Continuing with a safe baseline';
+        if (stepEl) stepEl.textContent = '';
+        S.ui.analysis.hide();
+      }, limit + 2000);
       // Off-DOM canvas keeps the page usable while the benchmark runs.
       return document.createElement('canvas');
     },
     hide: function (done) {
+      clearMaxLife();
       if (el) {
         el.classList.remove('is-open');
         el.classList.add('is-done');

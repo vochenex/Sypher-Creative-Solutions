@@ -10,6 +10,6 @@
     "test:server": "node server/tests/run.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.18.0"
   }
 }

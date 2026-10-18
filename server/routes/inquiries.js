@@ -2,7 +2,12 @@
 
 /**
  * Contact inquiry persistence for demonstration / local evaluation.
- * Inquiries are stored on disk. There is no public read API and no email delivery.
+ *
+ * Privacy:
+ * - Stores name, email, and message on local disk only.
+ * - Does not send email and does not expose a public read/list API.
+ * - Runtime file is gitignored; created on first write (see server/data/README.md).
+ * - Soft-retains at most MAX_STORE entries; operators should delete the file after demos.
  */
 
 const fs = require('fs');
@@ -12,6 +17,7 @@ const { HttpError } = require('../lib/http');
 
 const DATA_FILE = path.join(__dirname, '..', 'data', 'inquiries.json');
 const MAX_STORE = 500;
+const MAX_BYTES = 2 * 1024 * 1024;
 const SERVICES = new Set(['', 'Branding', 'Web Development', 'Multimedia', 'Digital Marketing']);
 const BUDGETS = new Set(['', 'Under $5k', '$5k to $15k', '$15k to $50k', '$50k+', 'Prefer not to say']);
 
@@ -19,21 +25,48 @@ const BUDGETS = new Set(['', 'Under $5k', '$5k to $15k', '$15k to $50k', '$50k+'
 const recentIds = new Map();
 const DEDUPE_MS = 2 * 60 * 1000;
 
+/**
+ * Serialize store mutations. Node runs JS on one thread, and create() uses sync I/O,
+ * so overlapping awaits cannot interleave inside create(); this lock documents the
+ * critical section and stays correct if load/save later become async.
+ */
+let storeChain = Promise.resolve();
+function withStoreLock(fn) {
+  const run = storeChain.then(() => fn(), () => fn());
+  storeChain = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 function load() {
   try {
-    const list = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    if (Buffer.byteLength(raw, 'utf8') > MAX_BYTES) {
+      throw new HttpError(500, 'STORE_CORRUPT', 'Inquiry store exceeds the allowed size');
+    }
+    const list = JSON.parse(raw);
     return Array.isArray(list) ? list : [];
   } catch (err) {
+    if (err instanceof HttpError) throw err;
     if (err && err.code === 'ENOENT') return [];
     throw new HttpError(500, 'STORE_CORRUPT', 'Inquiry store could not be read');
   }
 }
 
 function save(list) {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  const tmp = DATA_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(list, null, 2));
-  fs.renameSync(tmp, DATA_FILE);
+  try {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    const payload = JSON.stringify(list, null, 2);
+    if (Buffer.byteLength(payload, 'utf8') > MAX_BYTES) {
+      throw new HttpError(500, 'STORE_FULL', 'Inquiry store would exceed the allowed size');
+    }
+    const tmp = DATA_FILE + '.tmp';
+    fs.writeFileSync(tmp, payload);
+    fs.renameSync(tmp, DATA_FILE);
+  } catch (err) {
+    if (err instanceof HttpError) throw err;
+    // Never include paths or record contents in the client-facing message.
+    throw new HttpError(500, 'STORE_WRITE_FAILED', 'Inquiry could not be saved');
+  }
 }
 
 function clean(str) {
@@ -66,16 +99,12 @@ function purgeDedupe(now) {
   }
 }
 
-/**
- * Validate and persist an inquiry.
- * @returns {{ id: string, savedAt: string, delivery: 'saved', message: string }}
- */
-function create(body) {
+function createSync(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new HttpError(400, 'INVALID_PAYLOAD', 'body must be an object');
   }
 
-  // Honeypot: bots filling hidden "company_website" are rejected quietly as success-shaped 400 avoidance
+  // Honeypot: bots filling hidden "company_website" are rejected without storing data.
   if (body.company_website) {
     throw new HttpError(400, 'INVALID_PAYLOAD', 'Rejected', 'company_website');
   }
@@ -96,7 +125,11 @@ function create(body) {
     throw new HttpError(400, 'INVALID_PAYLOAD', 'budget is not recognised', 'budget');
   }
 
-  const clientRequestId = fieldString(body, 'clientRequestId', { required: false, max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
+  const clientRequestId = fieldString(body, 'clientRequestId', {
+    required: false,
+    max: 64,
+    pattern: /^[A-Za-z0-9_-]+$/
+  });
   const now = Date.now();
   purgeDedupe(now);
   if (clientRequestId && recentIds.has(clientRequestId)) {
@@ -131,4 +164,12 @@ function create(body) {
   };
 }
 
-module.exports = { create, DATA_FILE };
+/**
+ * Validate and persist an inquiry.
+ * @returns {Promise<{ id: string, savedAt: string, delivery: 'saved', message: string }>}
+ */
+function create(body) {
+  return withStoreLock(() => createSync(body));
+}
+
+module.exports = { create, createSync, DATA_FILE, MAX_STORE, MAX_BYTES };

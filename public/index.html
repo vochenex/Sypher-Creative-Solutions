@@ -515,7 +515,10 @@
             <h2 id="contact-title">Tell us what you want to <span class="hl">move</span></h2>
             <p class="section__lead">Share a few details and a strategist will reply within 1 business day.</p>
             <form class="form" id="contact-form" action="/api/inquiries" method="post" enctype="application/x-www-form-urlencoded" novalidate>
-              <p class="form__note">Demo note: inquiries are saved on this server for review. This form does not send email.</p>
+              <p class="form__note">
+                Privacy / demo note: submitting this form stores your name, email, and message in a local server file for review.
+                Records are not emailed, are not publicly listed, and should be deleted after evaluation. Prefer a non-personal address if you are only testing.
+              </p>
               <div class="field field--honeypot" aria-hidden="true">
                 <label for="f-company">Company website</label>
                 <input id="f-company" name="company_website" type="text" tabindex="-1" autocomplete="off">
