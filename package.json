@@ -5,7 +5,9 @@
   "description": "Sypher Creative Solutions: Adaptive Web Experience System sample (plain HTML, CSS, JS, and a zero-dependency Node API).",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "node server/server.js --open"
+    "dev": "node server/server.js --open",
+    "test": "node server/tests/run.js",
+    "test:server": "node server/tests/run.js"
   },
   "engines": {
     "node": ">=18"

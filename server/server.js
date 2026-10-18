@@ -7,8 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
+const { pipeline } = require('stream');
 
 const { sendJson, sendError, HttpError, readJson, createRateLimiter } = require('./lib/http');
+const { resolvePublicPath, isPathInside } = require('./lib/static-path');
 const deviceProfile = require('./routes/device-profile');
 const testResults = require('./routes/test-results');
 
@@ -20,14 +22,17 @@ const postLimiter = createRateLimiter(30);
 const getLimiter = createRateLimiter(120);
 
 let modesConfig = JSON.parse(fs.readFileSync(MODES_FILE, 'utf8'));
-fs.watchFile(MODES_FILE, { interval: 2000 }, () => {
-  try {
-    modesConfig = JSON.parse(fs.readFileSync(MODES_FILE, 'utf8'));
-    console.log(`[config] reloaded modes.json (${modesConfig.configVersion})`);
-  } catch {
-    console.error('[config] modes.json is invalid; keeping previous version');
-  }
-});
+
+function watchModesConfig() {
+  fs.watchFile(MODES_FILE, { interval: 2000 }, () => {
+    try {
+      modesConfig = JSON.parse(fs.readFileSync(MODES_FILE, 'utf8'));
+      console.log(`[config] reloaded modes.json (${modesConfig.configVersion})`);
+    } catch {
+      console.error('[config] modes.json is invalid; keeping previous version');
+    }
+  });
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -103,48 +108,173 @@ async function handleApi(req, res, url) {
 
 /* ---------- Static files ---------- */
 
-function serveStatic(req, res, url) {
+function sendStaticError(res, status, message) {
+  if (res.headersSent || res.writableEnded) return;
+  res.writeHead(status, Object.assign({
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-store'
+  }, SECURITY_HEADERS));
+  res.end(message);
+}
+
+function staticHeaders(fileReal, size) {
+  const ext = path.extname(fileReal).toLowerCase();
+  return Object.assign({
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    'Content-Length': size,
+    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300'
+  }, SECURITY_HEADERS);
+}
+
+/**
+ * Serve a static file only after logical path resolution, realpath containment,
+ * and (for GET) a successful stream open. Symlinks that escape publicDir are denied.
+ */
+function serveStatic(req, res, url, options) {
+  const publicDir = options.publicDir;
+  const createReadStream = options.createReadStream;
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { Allow: 'GET, HEAD' });
     return res.end();
   }
-  let rel = decodeURIComponent(url.pathname);
-  if (rel.endsWith('/')) rel += 'index.html';
-  const file = path.normalize(path.join(PUBLIC_DIR, rel));
-  if (!file.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403);
-    return res.end();
-  }
-  fs.stat(file, (err, stat) => {
-    if (err || !stat.isFile()) {
-      res.writeHead(404, Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, SECURITY_HEADERS));
-      return res.end('Not found');
+
+  let logical;
+  try {
+    logical = resolvePublicPath(publicDir, url.pathname);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return sendStaticError(res, err.status, err.message);
     }
-    const ext = path.extname(file).toLowerCase();
-    res.writeHead(200, Object.assign({
-      'Content-Type': MIME[ext] || 'application/octet-stream',
-      'Content-Length': stat.size,
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300'
-    }, SECURITY_HEADERS));
-    if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(file).pipe(res);
+    throw err;
+  }
+
+  fs.realpath(publicDir, (rootErr, rootReal) => {
+    if (rootErr) {
+      console.error('[static] public dir realpath failed:', rootErr.message);
+      return sendStaticError(res, 500, 'Public directory unavailable');
+    }
+
+    fs.realpath(logical, (fileErr, fileReal) => {
+      if (fileErr) {
+        return sendStaticError(res, 404, 'Not found');
+      }
+      if (!isPathInside(rootReal, fileReal)) {
+        return sendStaticError(res, 403, 'Path is outside the public directory');
+      }
+
+      fs.stat(fileReal, (statErr, stat) => {
+        if (statErr || !stat.isFile()) {
+          return sendStaticError(res, 404, 'Not found');
+        }
+
+        if (req.method === 'HEAD') {
+          res.writeHead(200, staticHeaders(fileReal, stat.size));
+          return res.end();
+        }
+
+        let opened = false;
+        let stream;
+        try {
+          stream = createReadStream(fileReal);
+        } catch (openErr) {
+          console.error('[static] createReadStream threw:', openErr.message);
+          return sendStaticError(res, 500, 'Error reading file');
+        }
+
+        const failBeforeHeaders = (streamErr) => {
+          console.error('[static] read stream error:', streamErr.message);
+          if (!opened || !res.headersSent) {
+            sendStaticError(res, 500, 'Error reading file');
+          }
+        };
+
+        stream.on('error', failBeforeHeaders);
+
+        // Wait for a successful open before committing a 200 response so
+        // post-stat / pre-open failures become controlled 500s, not hung sockets.
+        stream.once('open', () => {
+          opened = true;
+          stream.removeListener('error', failBeforeHeaders);
+          if (res.headersSent || res.writableEnded) {
+            stream.destroy();
+            return;
+          }
+          res.writeHead(200, staticHeaders(fileReal, stat.size));
+          pipeline(stream, res, (err) => {
+            if (!err) return;
+            console.error('[static] pipeline error:', err.message);
+            if (!res.headersSent) {
+              sendStaticError(res, 500, 'Error reading file');
+              return;
+            }
+            // Content-Length may already be committed; reset the socket so
+            // clients are not left waiting for remaining bytes.
+            if (!res.destroyed) {
+              res.destroy(err);
+            }
+            const socket = res.socket;
+            if (socket && !socket.destroyed) {
+              socket.destroy(err);
+            }
+          });
+        });
+      });
+    });
   });
+}
+
+function parseRequestUrl(req) {
+  try {
+    return new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  } catch {
+    throw new HttpError(400, 'MALFORMED_URL', 'Request URL could not be parsed');
+  }
+}
+
+function createRequestHandler(options) {
+  const publicDir = options.publicDir || PUBLIC_DIR;
+  const createReadStream = options.createReadStream || fs.createReadStream;
+  const staticOptions = { publicDir, createReadStream };
+
+  return function handleRequest(req, res) {
+    let url;
+    try {
+      url = parseRequestUrl(req);
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return sendError(res, err.status, err.code, err.message);
+      }
+      console.error(err);
+      return sendError(res, 500, 'SERVER_ERROR', 'Unexpected server error');
+    }
+
+    if (url.pathname.startsWith('/api/')) {
+      handleApi(req, res, url).catch((err) => {
+        if (err instanceof HttpError) return sendError(res, err.status, err.code, err.message, err.field);
+        console.error(err);
+        if (!res.headersSent) sendError(res, 500, 'SERVER_ERROR', 'Unexpected server error');
+      });
+      return;
+    }
+
+    try {
+      serveStatic(req, res, url, staticOptions);
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return sendStaticError(res, err.status, err.message);
+      }
+      console.error(err);
+      sendStaticError(res, 500, 'Unexpected server error');
+    }
+  };
 }
 
 /* ---------- Server ---------- */
 
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  if (url.pathname.startsWith('/api/')) {
-    handleApi(req, res, url).catch((err) => {
-      if (err instanceof HttpError) return sendError(res, err.status, err.code, err.message, err.field);
-      console.error(err);
-      sendError(res, 500, 'SERVER_ERROR', 'Unexpected server error');
-    });
-    return;
-  }
-  serveStatic(req, res, url);
-});
+function createServer(options) {
+  return http.createServer(createRequestHandler(options || {}));
+}
 
 function openBrowser(url) {
   const [cmd, args] =
@@ -160,17 +290,33 @@ function openBrowser(url) {
   }
 }
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use. Stop the other server or run with a different PORT.`);
-    process.exit(1);
-  }
-  throw err;
-});
+function start(port = PORT) {
+  watchModesConfig();
+  const server = createServer();
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Stop the other server or run with a different PORT.`);
+      process.exit(1);
+    }
+    throw err;
+  });
+  server.listen(port, () => {
+    const url = `http://localhost:${port}`;
+    console.log(`Sypher adaptive site running at ${url}`);
+    console.log(`Debug view:  ${url}/?debug=1`);
+    if (process.argv.includes('--open')) openBrowser(url);
+  });
+  return server;
+}
 
-server.listen(PORT, () => {
-  const url = `http://localhost:${PORT}`;
-  console.log(`Sypher adaptive site running at ${url}`);
-  console.log(`Debug view:  ${url}/?debug=1`);
-  if (process.argv.includes('--open')) openBrowser(url);
-});
+if (require.main === module) {
+  start();
+}
+
+module.exports = {
+  createServer,
+  start,
+  createRequestHandler,
+  PUBLIC_DIR,
+  SECURITY_HEADERS
+};
