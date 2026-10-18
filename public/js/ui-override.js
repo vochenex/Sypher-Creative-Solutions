@@ -69,6 +69,7 @@
     var r = radios.filter(function (x) { return x.value === 'auto'; })[0];
     if (r) r.focus();
   });
+  $('motion-allow').addEventListener('click', function () { S.controller.allowMotion(); });
 
   ['adaptive:ready', 'adaptive:modechange', 'adaptive:profileupdate'].forEach(function (ev) {
     document.addEventListener(ev, function () { if (warn.hidden) sync(); });

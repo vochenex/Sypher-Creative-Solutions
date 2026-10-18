@@ -69,41 +69,31 @@ html[data-mode="medium"] .project__link:focus-visible .project__go, html[data-mo
   html[data-mode="medium"] .project__link:hover .project__img { transform: scale(1.04); }
 }
 
-/* Ambient motion: orbit, spark, showreel rings, and the film banner. Transform, rotate, scale, and opacity only. */
-html[data-mode="medium"][data-motion="full"] .hero__orbit,
+/* Continuous ambient effects are High-only. Medium uses interaction-led zooms. */
 html[data-mode="high"][data-motion="full"] .hero__orbit { animation: orbit 48s linear infinite; }
-html[data-mode="medium"][data-motion="full"] .hero__spark--b,
 html[data-mode="high"][data-motion="full"] .hero__spark--b { animation: floaty 6.5s ease-in-out infinite alternate; }
 @keyframes orbit { to { rotate: 1turn; } }
 @keyframes floaty { to { translate: 0 -12px; } }
 
-html[data-mode="medium"][data-motion="full"] .play-ring,
 html[data-mode="high"][data-motion="full"] .play-ring { animation: ring 2.8s var(--ease) infinite; }
-html[data-mode="medium"][data-motion="full"] .play-ring--b,
 html[data-mode="high"][data-motion="full"] .play-ring--b { animation-delay: 1.4s; }
 @keyframes ring { 0% { opacity: 0.5; scale: 1; } 100% { opacity: 0; scale: 1.6; } }
 
-html[data-mode="medium"][data-motion="full"] .reel-banner__frame,
 html[data-mode="high"][data-motion="full"] .reel-banner__frame,
-html[data-mode="medium"][data-motion="full"] .reel-banner__lines span,
 html[data-mode="high"][data-motion="full"] .reel-banner__lines span { animation: reelFade 15s ease-in-out infinite; }
-html[data-mode="medium"][data-motion="full"] .reel-banner__frame:nth-child(2),
 html[data-mode="high"][data-motion="full"] .reel-banner__frame:nth-child(2),
-html[data-mode="medium"][data-motion="full"] .reel-banner__lines span:nth-child(2),
 html[data-mode="high"][data-motion="full"] .reel-banner__lines span:nth-child(2) { animation-delay: -10s; }
-html[data-mode="medium"][data-motion="full"] .reel-banner__frame:nth-child(3),
 html[data-mode="high"][data-motion="full"] .reel-banner__frame:nth-child(3),
-html[data-mode="medium"][data-motion="full"] .reel-banner__lines span:nth-child(3),
 html[data-mode="high"][data-motion="full"] .reel-banner__lines span:nth-child(3) { animation-delay: -5s; }
-html[data-mode="medium"][data-motion="full"] .reel-banner__lines span,
 html[data-mode="high"][data-motion="full"] .reel-banner__lines span { display: block; position: absolute; left: 0; right: 0; top: 0; }
 @keyframes reelFade { 0%, 32% { opacity: 1; } 33%, 100% { opacity: 0; } }
-html[data-mode="medium"][data-motion="full"] .reel-banner__reel,
 html[data-mode="high"][data-motion="full"] .reel-banner__reel { animation: orbit 18s linear infinite; }
 
-/* Marquee: CSS loop in MEDIUM; HIGH hands it to GSAP for scroll-velocity response */
-/* CSS marquee for Medium always; High uses it until GSAP high-fx takes over. */
-html[data-mode="medium"][data-motion="full"] .marquee__track,
+@media (hover: hover) {
+  html[data-mode="medium"] .reel-banner__frame:first-child { transition: transform 500ms var(--ease); }
+  html[data-mode="medium"] .reel-banner:hover .reel-banner__frame:first-child { transform: scale(1.035); }
+}
+/* Continuous motion belongs to High; Medium keeps its artwork still until interaction. */
 html[data-mode="high"][data-motion="full"]:not(.high-fx) .marquee__track { animation: marquee 48s linear infinite; }
 @keyframes marquee { to { transform: translate3d(-50%, 0, 0); } }
 

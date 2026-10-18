@@ -79,8 +79,9 @@
           write('localStorage', KEYS.profile, null);
           return null;
         }
-        var ttl = typeof ttlHours === 'number' ? ttlHours : 24;
-        if (Date.now() - p.timestamp > ttl * 3600 * 1000) {
+        // A zero TTL keeps the chosen experience across browser sessions until an explicit re-scan.
+        var ttl = typeof ttlHours === 'number' ? ttlHours : 0;
+        if (ttl > 0 && Date.now() - p.timestamp > ttl * 3600 * 1000) {
           write('localStorage', KEYS.profile, null);
           return null;
         }

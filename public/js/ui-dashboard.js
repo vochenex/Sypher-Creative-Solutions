@@ -13,7 +13,7 @@
     desktopQuery = null;
   }
   var opener = null, isOpen = false;
-  var background = [$('main'), $('site-header'), document.querySelector('.site-footer')];
+  var background = [$('main'), $('site-header'), document.querySelector('.site-footer'), chip];
 
   function modal() { return !(desktopQuery && desktopQuery.matches); }
 
@@ -96,6 +96,13 @@
   };
 
   function renderChip() {
+    if (S.state.phase === 'ANALYZING') {
+      chipLabel.textContent = 'Finding your fit\u2026';
+      chip.setAttribute('aria-label', 'Detecting the best performance mode for this device. Open performance settings.');
+      chip.setAttribute('aria-busy', 'true');
+      return;
+    }
+    chip.removeAttribute('aria-busy');
     var label = C.chip(S.state.mode, S.state.source) + (S.state.profile && S.state.profile.estimated ? ' est.' : '');
     chipLabel.textContent = label;
     chip.setAttribute('aria-label', 'Performance: ' + C.title(S.state.mode) + ' mode, ' + (S.state.source === 'manual' ? 'manual' : 'automatic') + '. Open performance dashboard.');
@@ -173,6 +180,7 @@
   });
 
   document.addEventListener('adaptive:progress', function () {
+    renderChip();
     if (isOpen && S.state.phase === 'ANALYZING') {
       ['d-cpu', 'd-mem', 'd-screen', 'd-fps', 'd-gl', 'd-score'].forEach(function (id) { set(id, 'Measuring\u2026'); });
     }

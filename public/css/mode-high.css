@@ -40,10 +40,10 @@ html[data-mode="high"] .project__frame { transition: border-radius var(--dur-slo
 html[data-mode="high"] .project__link:hover .project__frame { border-radius: 30px; }
 
 /* Round arrows turn toward their destination */
-html[data-mode="high"] .mini-card { transition: transform 500ms var(--ease), background-color var(--dur-base); }
+html[data-mode="high"] .mini-card { transition: background-color var(--dur-base); }
 
 /* Corner brackets draw themselves once the showreel scrolls into view (GSAP sets the offset) */
-html[data-mode="high"][data-motion="full"] .stroke-draw { stroke-dasharray: 1; stroke-dashoffset: 1; }
+html.high-fx[data-mode="high"][data-motion="full"] .stroke-draw { stroke-dasharray: 1; stroke-dashoffset: 1; }
 
 /* Showreel poster: slow push plus a light sweep until the muted preview takes over */
 html[data-mode="high"][data-motion="full"] .video-block.is-inview .video-block__poster { animation: kenburns 16s ease-in-out infinite alternate; }

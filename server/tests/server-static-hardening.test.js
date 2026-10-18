@@ -190,6 +190,38 @@ describe('static stream error handling', () => {
     }
   });
 
+  it('discards a delayed file open after the browser disconnects', async () => {
+    let delayedStream;
+    let opened;
+    let disconnected;
+    const created = new Promise((resolve) => { opened = resolve; });
+    const closed = new Promise((resolve) => { disconnected = resolve; });
+    const server = createServer({
+      publicDir,
+      createReadStream(file) {
+        if (!file.endsWith('piece.txt')) return fs.createReadStream(file);
+        delayedStream = new Readable({ read() {} });
+        opened();
+        return delayedStream;
+      }
+    });
+    server.once('request', (_req, res) => res.once('close', disconnected));
+    const port = await listen(server);
+    try {
+      const client = http.get({ hostname: '127.0.0.1', port, path: '/piece.txt' });
+      client.on('error', () => {});
+      await created;
+      client.destroy();
+      await closed;
+      assert.doesNotThrow(() => delayedStream.emit('open'));
+      assert.equal(delayedStream.destroyed, true);
+      const ok = await request(port, { path: '/index.html' });
+      assert.equal(ok.status, 200);
+    } finally {
+      await close(server);
+    }
+  });
+
   it('handles synchronous createReadStream failures', async () => {
     const server = createServer({
       publicDir,

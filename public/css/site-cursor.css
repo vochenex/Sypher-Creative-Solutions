@@ -1,0 +1,78 @@
+/* Viewport-level cursor: available throughout High, independent of the hero's visibility. */
+.site-cursor, .site-cursor-dot {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+}
+.site-cursor { --ring-size: 44px; }
+.site-cursor::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--ring-size);
+  height: var(--ring-size);
+  translate: -50% -50%;
+  border-radius: 50%;
+  transition: width 220ms ease, height 220ms ease, background 220ms ease, border-color 220ms ease;
+}
+.site-cursor::before {
+  border: 1px solid #a4bc8238;
+  background: radial-gradient(circle at 30% 25%, #d9fa9b35, #c0d6b41c 48%, #f1cfa21a);
+}
+.site-cursor__orbit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--ring-size) + 12px);
+  height: calc(var(--ring-size) + 12px);
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 12deg, #d9fa9bed 0deg 42deg, transparent 42deg 53deg, #809a60dc 53deg 62deg, transparent 62deg 90deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  animation: cursor-orbit 10s linear infinite paused;
+  transition: width 220ms ease, height 220ms ease;
+}
+@keyframes cursor-orbit { to { rotate: 1turn; } }
+.site-cursor span {
+  position: absolute;
+  translate: -50% -50%;
+  font: 600 9px/1 "Archivo", sans-serif;
+  letter-spacing: .08em;
+  white-space: nowrap;
+  color: #27351f;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.site-cursor-dot::before {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #bfe26f;
+  box-shadow: 0 0 0 1px #27351f80;
+}
+@media (hover: hover) and (pointer: fine) {
+  html.has-custom-cursor[data-mode="high"][data-motion="full"] .site-cursor,
+  html.has-custom-cursor[data-mode="high"][data-motion="full"] .site-cursor-dot { display: block; }
+  html.has-custom-cursor.is-pointer-active:not(.is-native-pointer),
+  html.has-custom-cursor.is-pointer-active:not(.is-native-pointer) * { cursor: none !important; }
+  html.is-pointer-active:not(.is-native-pointer) .site-cursor,
+  html.is-pointer-active:not(.is-native-pointer) .site-cursor-dot { opacity: 1; }
+  html.has-custom-cursor.is-pointer-active:not(.is-native-pointer)[data-mode="high"][data-motion="full"] .site-cursor__orbit { animation-play-state: running; }
+  html.is-action-hovered .site-cursor { --ring-size: 76px; }
+  html.is-action-hovered .site-cursor::before { background: #d9fa9bf2; border-color: #e5f7c6; }
+  html.is-action-hovered .site-cursor span { opacity: 1; }
+  html.is-pointer-active.is-action-hovered:not(.is-native-pointer) .site-cursor-dot { opacity: 0; }
+  html.is-pointer-pressed .site-cursor { --ring-size: 34px; }
+  html.is-pointer-pressed.is-action-hovered .site-cursor { --ring-size: 66px; }
+}
