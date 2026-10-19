@@ -255,7 +255,7 @@ html[data-motion="reduced"] .hero-card { transition: none; }
 
 /* Basic keeps every project available without a loop, swipe handler, or frame loop. */
 .hero.hero-showcase[data-effects="basic"] { height: auto; min-height: 780px; padding-bottom: 40px; }
-.hero-showcase[data-effects="basic"] .hero-carousel { position: relative; inset: auto; width: min(1240px, calc(100% - 96px)); margin: 48px auto 32px; }
+.hero-showcase[data-effects="basic"] .hero-carousel { position: relative; inset: auto; width: min(1240px, calc(100% - 96px)); height: auto; margin: 48px auto 32px; }
 .hero-showcase[data-effects="basic"] .hero-carousel__track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .hero-showcase[data-effects="basic"] .hero-card { position: relative; inset: auto; width: 100%; height: 210px; transform: none; will-change: auto; }
 .hero-showcase[data-effects="basic"] .hero-card__brand { font-size: 32px; }
