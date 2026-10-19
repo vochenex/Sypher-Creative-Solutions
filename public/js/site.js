@@ -10,6 +10,8 @@
   /* ---------- Mobile menu ---------- */
   var menuBtn = $('menu-btn'), nav = $('primary-nav'), menuLabel = $('menu-btn-label');
   function setMenu(open) {
+    root.classList.toggle('menu-open', open);
+    if (open) $('site-header').classList.remove('is-tucked');
     nav.classList.toggle('is-open', open);
     menuBtn.setAttribute('aria-expanded', String(open));
     menuLabel.textContent = open ? 'Close menu' : 'Open menu';

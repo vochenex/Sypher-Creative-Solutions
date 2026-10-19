@@ -686,11 +686,22 @@ html[data-mode="basic"] .gauge__value { stroke: var(--accent-3); }
     padding: calc(var(--header-top) + var(--header-h) + 32px) 24px 24px; display: none; margin: 0;
   }
   html.js .nav.is-open { display: block; z-index: 40; }
+  /* Keep the fixed menu rooted in the viewport, outside header blur/transform containment. */
+  html.js .site-header .site-header__inner { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  html.js.menu-open .site-header { transform: none !important; }
+  html.js.menu-open .site-header__inner { background: #f5f4ec; box-shadow: none; }
+  html.js .nav.is-open { height: 100dvh; overflow-y: auto; background: #f2f1e9; color: #263021; }
+  html.js .site-header .logo, html.js .site-header__actions { position: relative; z-index: 41; }
+  html.js.menu-open .site-header .logo { color: #263021; }
+  html.js.menu-open .site-header .menu-btn { background: #e9ecdf; border-color: #d4d9c8; color: #3c4c2d; }
+  html.js.menu-open .menu-btn__bars, html.js.menu-open .menu-btn__bars::before, html.js.menu-open .menu-btn__bars::after { background: #35432a; }
   html.js .nav__list { flex-direction: column; gap: 4px; }
   html.js .nav__list a {
     font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: var(--display-weight);
     font-size: 1.8rem; min-height: 60px; color: var(--text); padding: 0 8px; letter-spacing: -0.02em;
   }
+  html.js .nav.is-open .nav__list { margin: 0; padding: 0; }
+  html.js .nav.is-open a { color: #263021; }
   html:not(.js) .menu-btn { display: none; }
   html:not(.js) .nav { position: static; display: block; padding: 0; margin: 0; background: transparent; }
   html:not(.js) .nav__list { flex-wrap: wrap; gap: 2px; }

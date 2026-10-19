@@ -30,6 +30,24 @@ preference. A new system preference change still updates motion immediately.
 
 ## Earlier checks (historical evidence)
 
+### Mobile hero and menu follow-up, October 19, 2026
+
+- Phone/tablet hero content uses normal document flow, with separate space for
+  the heading, project ribbon, paragraph, and controls. Dark labels and controls
+  replace white text on the cream background.
+- Browser checks at 320 x 568, 390 x 844, and 768 x 1024 showed no horizontal
+  overflow and a 20-24px gap between the ribbon row and footer.
+- At 390 x 844 in High, the paragraph, Selected Work, Swipe to explore, and
+  Pause motion are visible without overlapping the fixed performance control.
+- At 320 x 568 the footer remains accessible by scrolling, with no card overlap.
+- The open mobile navigation fills the 390 x 844 viewport; its links and close
+  button remain visible. Header blur no longer constrains the fixed overlay.
+- The full 93-test run had five static-server request timeouts during a slow
+  local run; the affected test file passed all eight checks on its isolated rerun.
+  Symlink creation remains unavailable on this Windows environment.
+- Screenshots are saved in the ignored `.screens/` folder. These are browser
+  viewport checks, not physical-device certification.
+
 - Automated suite: **60 passing tests**, including four mode-transition regression tests.
 - Chrome desktop: 1440 x 950.
 - Chrome mobile emulation: 390 x 844, with touch input.

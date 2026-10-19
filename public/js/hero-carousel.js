@@ -219,7 +219,7 @@
     hero.dataset.autoplay = String(autoplay);
     manual.hidden = !manualEnabled;
     carousel.tabIndex = manualEnabled ? 0 : -1;
-    hint.textContent = fine.matches ? 'Drag to explore' : 'Swipe to explore';
+    hint.textContent = fine.matches && hero.clientWidth > 600 ? 'Drag to explore' : 'Swipe to explore';
     carousel.setAttribute('aria-label', manualEnabled ? 'Selected Sypher projects. Drag, swipe, or use arrow keys to explore.' : 'Selected Sypher projects');
     if (!manualEnabled) carousel.removeAttribute('aria-roledescription');
     else carousel.setAttribute('aria-roledescription', 'carousel');
@@ -337,7 +337,7 @@
   if (S) S.heroPaused = function () { return paused; };
   reduced.addEventListener('change', sync);
   fine.addEventListener('change', sync);
-  window.addEventListener('resize', resize, { passive: true });
+  window.addEventListener('resize', sync, { passive: true });
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(function (entries) {
       visible = entries[0].isIntersecting;
