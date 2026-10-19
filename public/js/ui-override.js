@@ -16,7 +16,13 @@
     resetBtn.hidden = S.state.source !== 'manual';
     rmNote.hidden = !(S.state.motion === 'reduced');
     var p = S.state.profile;
-    autoDesc.textContent = p ? 'Chosen for this device: ' + p['class'] : 'Chosen for this device';
+    var help = (S.copy && S.copy.modeHelp && S.copy.modeHelp.auto) || 'Recommended for this visit based on available device signals.';
+    if (p && p['class']) {
+      var conf = p.confidence && p.confidence !== 'none' ? ' · confidence ' + p.confidence : '';
+      autoDesc.textContent = help + ' Detected ' + p['class'] + conf + '.';
+    } else {
+      autoDesc.textContent = help;
+    }
   }
 
   function apply(choice) {

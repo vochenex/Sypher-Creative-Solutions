@@ -26,7 +26,7 @@ function loadStorage(store = new Map()) {
     } },
     console
   };
-  sandbox.window.Sypher = { config: { configVersion: '2026-10-13.1' } };
+  sandbox.window.Sypher = { config: { configVersion: '2026-10-18.4' } };
   sandbox.Sypher = sandbox.window.Sypher;
   const code = fs.readFileSync(path.join(__dirname, '../../public/js/storage.js'), 'utf8');
   vm.runInNewContext(code, sandbox, { filename: 'storage.js' });
@@ -47,7 +47,7 @@ describe('cached profile validation (F6)', () => {
       timestamp: Date.now(),
       breakdown: { cpu: 20 },
       signals: { cpuThreads: 8 },
-      configVersion: '2026-10-13.1'
+      configVersion: '2026-10-18.4'
     };
     assert.equal(storage.setProfile(profile), true);
     const got = storage.getProfile(24);
@@ -97,7 +97,7 @@ describe('cached profile validation (F6)', () => {
       score: 40,
       class: 'BASIC',
       timestamp: Date.now() - 48 * 3600 * 1000,
-      configVersion: '2026-10-13.1'
+      configVersion: '2026-10-18.4'
     }));
     assert.equal(s2.getProfile(24), null);
   });

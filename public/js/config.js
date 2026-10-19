@@ -1,7 +1,7 @@
 ﻿/* Built-in default copy of server/config/modes.json. Keep both in sync (configVersion). */
 (function (root) {
   var config = {
-  "configVersion": "2026-10-13.1",
+  "configVersion": "2026-10-18.4",
   "modes": {
     "high": {
       "videoBackground": true,
@@ -112,7 +112,8 @@
     "toastMs": 6000,
     "liveDowngradeFps": 24,
     "liveDowngradeWindows": 3,
-    "liveDowngradeGraceMs": 5000
+    "liveDowngradeGraceMs": 5000,
+    "liveDowngradeCooldownMs": 12000
   }
 };
   root.Sypher = root.Sypher || {};

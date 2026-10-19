@@ -28,7 +28,7 @@
       BASIC: 'Visual effects stay minimal. Animations are also off because your system reduce-motion setting is enabled.'
     },
     resultEstimated: 'Result estimated from limited information.',
-    resultFallback: 'We couldn\u2019t analyze your device, so a balanced mode (MEDIUM) is being used.',
+    resultFallback: 'We couldn\u2019t analyze your device reliably, so Basic mode is being used as a safe baseline.',
     resultManual: function (mode) { return 'You\u2019re using ' + title(mode) + ' mode (your choice).'; },
     resultVerified: 'Your device passed the smoothness test, so full effects are on.',
     resultVerifiedReduced: 'Your device passed the smoothness test. Animations stay off while reduce-motion is on.',
@@ -36,12 +36,20 @@
     whyHigh: { cpu: 'Strong processor', fps: 'a smooth frame rate', memory: 'plenty of memory', webgl: 'full graphics support', screen: 'a comfortable screen resolution' },
     whyLow: { cpu: 'Fewer processor threads', memory: 'Limited memory', fps: 'A lower frame rate in the quick test', webgl: 'Limited graphics support', screen: 'A very high-resolution screen' },
     whyCap: {
-      touchCap: 'Touch device on a smaller screen',
+      touchCap: 'Touch device on a smaller screen without strong frame evidence',
       saveData: 'Data Saver is on',
       slowNetwork: 'A slow network connection',
       lowBattery: 'Battery is low and not charging',
-      insufficientData: 'Not enough information to measure this device',
-      estimatedHighGuard: 'Smoothness test didn\u2019t finish, so a balanced mode was chosen'
+      insufficientData: 'Not enough independent evidence for richer effects',
+      estimatedHighGuard: 'Frame observation didn\u2019t finish, so High was withheld',
+      lowCoverage: 'Evidence coverage was too low for High',
+      noHardwareHint: 'No CPU/memory hint was available for a High recommendation'
+    },
+    modeHelp: {
+      auto: 'Recommended for this visit based on available device signals.',
+      high: 'Rich visuals when evidence supports them.',
+      medium: 'Balanced visuals with lighter effects.',
+      basic: 'Lightweight presentation for speed and simplicity.'
     },
 
     chip: function (mode, source) { return title(mode) + ' \u00b7 ' + (source === 'manual' ? 'Manual' : 'Auto'); },
@@ -54,7 +62,7 @@
       rmHigh: 'Your device can run High mode, but animations stay off while reduce-motion is on. You can show animations for this visit, or disable Reduce Motion in your system accessibility settings.',
       rmAllow: 'Animations are on for this visit. Your system reduce-motion setting is unchanged.',
       estimated: 'We used a quick estimate to choose your display mode.',
-      fallback: 'We couldn\u2019t analyze your device, so MEDIUM mode is being used.',
+      fallback: 'We couldn\u2019t analyze your device reliably, so Basic mode is being used.',
       downgrade: function (lighter) { return 'Things look a bit slow. Switch to ' + title(lighter) + ' for smoother scrolling?'; },
       storage: 'Your browser isn\u2019t saving settings, so your display mode will reset when you leave this page.',
       testSaved: 'Test result saved.',

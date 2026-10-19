@@ -110,7 +110,7 @@
     var caps = profile.appliedCaps || [];
     var phrase;
     if (caps.length) {
-      phrase = C.whyCap[caps[0]];
+      phrase = C.whyCap[caps[0]] || caps[0];
     } else {
       var keys = ['fps', 'cpu', 'memory', 'webgl', 'screen'].filter(function (k) {
         return profile.breakdown && profile.breakdown[k] !== null && profile.breakdown[k] !== undefined;

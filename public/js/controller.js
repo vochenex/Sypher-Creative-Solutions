@@ -268,29 +268,52 @@
   function buildProfile(signals, bench, scored, result) {
     return {
       score: scored.score,
+      coverage: scored.coverage,
+      confidence: result.confidence || 'low',
       class: result.cls,
+      recommendedClass: result.cls,
       estimated: scored.estimated || result.fallback,
       benchmarkVerified: result.benchmarkVerified,
       breakdown: scored.breakdown,
+      quality: scored.quality,
       max: scored.max,
       appliedCaps: result.appliedCaps,
+      reasons: result.reasons || [],
       missingSignals: missingList(signals),
       megapixels: scored.physicalMegapixels,
+      hasHardwareHint: !!scored.hasHardwareHint,
       source: result.fallback ? 'fallback' : 'auto',
       confirmed: false,
       signals: signals,
       benchmark: bench,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      configVersion: cfg.configVersion
     };
   }
 
   function fallbackProfile(signals) {
     return {
-      score: null, class: 'MEDIUM', estimated: true, benchmarkVerified: false,
+      score: null,
+      coverage: 0,
+      confidence: 'none',
+      class: 'BASIC',
+      recommendedClass: 'BASIC',
+      estimated: true,
+      benchmarkVerified: false,
       breakdown: { cpu: null, memory: null, screen: null, webgl: null, fps: null },
-      max: cfg.scoring.weights, appliedCaps: [], missingSignals: signals ? missingList(signals) : ['all'],
-      megapixels: null, source: 'fallback', confirmed: false, signals: signals || null,
-      benchmark: { completed: false, durationMs: 0 }, timestamp: Date.now()
+      quality: { cpu: null, memory: null, screen: null, webgl: null, fps: null },
+      max: cfg.scoring.weights,
+      appliedCaps: ['insufficientData'],
+      reasons: ['No usable capability evidence was available.'],
+      missingSignals: signals ? missingList(signals) : ['all'],
+      megapixels: null,
+      hasHardwareHint: false,
+      source: 'fallback',
+      confirmed: false,
+      signals: signals || null,
+      benchmark: { completed: false, durationMs: 0 },
+      timestamp: Date.now(),
+      configVersion: cfg.configVersion
     };
   }
 
@@ -431,7 +454,7 @@
     S.storage.markSession();
 
     var override = S.storage.getOverride();
-    var detected = safeMode(profile && profile.class, 'medium');
+    var detected = safeMode(profile && profile.class, 'basic');
     var mode = override !== 'auto' ? safeMode(override, detected) : detected;
     var source = override !== 'auto' ? 'manual' : 'auto';
     setPhase(source === 'manual' ? 'OVERRIDDEN' : 'RENDERED');
@@ -479,7 +502,7 @@
   /** Returns 'confirm' when the High-on-BASIC confirmation is required, otherwise 'applied'. */
   function setOverride(choice, opts) {
     opts = opts || {};
-    var detected = state.profile ? state.profile.class : 'MEDIUM';
+    var detected = state.profile ? state.profile.class : 'BASIC';
     if (choice === 'high' && detected === 'BASIC' && !opts.confirmed && state.mode !== 'high') return 'confirm';
 
     var prev = { mode: state.mode, source: state.source, override: S.storage.getOverride() };
@@ -488,7 +511,7 @@
       notice('storage-unavailable', S.copy.toast.storage);
     }
 
-    var mode = choice === 'auto' ? safeMode(detected, 'medium') : safeMode(choice, state.mode);
+    var mode = choice === 'auto' ? safeMode(detected, 'basic') : safeMode(choice, state.mode);
     var source = choice === 'auto' ? 'auto' : 'manual';
     setPhase(source === 'manual' ? 'OVERRIDDEN' : 'RENDERED');
     applyMode(mode, source, { restartMotion: choice === 'high' });
@@ -516,10 +539,12 @@
   /* ---------- Live downgrade watch ---------- */
 
   var liveWatch = (function () {
-    var raf = null, windowStart = 0, frames = 0, lowCount = 0, startedAt = 0;
+    var raf = null, windowStart = 0, frames = 0, lowCount = 0, startedAt = 0, cooldownUntil = 0;
     function loop(now) {
       raf = requestAnimationFrame(loop);
       if (document.visibilityState !== 'visible') { windowStart = now; frames = 0; return; }
+      if (state.source !== 'auto') { windowStart = now; frames = 0; lowCount = 0; return; }
+      if (now < cooldownUntil) { windowStart = now; frames = 0; return; }
       if (now - startedAt < cfg.timing.liveDowngradeGraceMs) { windowStart = now; return; }
       frames++;
       if (now - windowStart >= 1000) {
@@ -530,8 +555,12 @@
       }
     }
     function offer() {
+      if (state.source !== 'auto') return;
       var lighter = S.classify.lower(state.mode.toUpperCase()).toLowerCase();
+      if (lighter === state.mode) return;
       var current = state.mode;
+      var cooldown = cfg.timing.liveDowngradeCooldownMs || 12000;
+      cooldownUntil = performance.now() + cooldown;
       setPhase('DOWNGRADE_OFFERED');
       notice('downgrade-offer', S.copy.toast.downgrade(lighter), {
         tone: 'warning', persistent: true, timeoutMs: 10000,
@@ -543,6 +572,7 @@
     }
     function start() {
       stop();
+      if (state.source !== 'auto') return;
       if (!state.flags || !state.flags.liveDowngradeWatch || S.storage.isDowngradeDismissed()) return;
       startedAt = performance.now(); windowStart = startedAt; frames = 0; lowCount = 0;
       raf = requestAnimationFrame(loop);

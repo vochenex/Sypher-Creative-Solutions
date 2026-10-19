@@ -73,11 +73,15 @@ module.exports = function deviceProfile(body, modesConfig) {
 
   return {
     score: scored.score,
+    coverage: scored.coverage,
+    confidence: result.confidence,
     class: result.cls,
     estimated: scored.estimated || result.fallback,
     benchmarkVerified: result.benchmarkVerified,
     breakdown: scored.breakdown,
+    quality: scored.quality,
     appliedCaps: result.appliedCaps,
+    reasons: result.reasons || [],
     missingSignals: missing,
     mode,
     source: 'auto',
