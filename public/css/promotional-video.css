@@ -1,0 +1,49 @@
+/* Full-width portrait film strip. */
+.film-section { padding-block: 32px; background: #000; }
+.film-carousel { --film-width: min(clamp(230px, 23vw, 430px), calc((100svh - 280px) * 9 / 16)); --film-gap: clamp(20px, 1.8vw, 40px); }
+.film-carousel__viewport { position: relative; display: flex; align-items: center; gap: var(--film-gap); overflow-x: auto; padding: 28px 24px; min-height: 420px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.film-carousel__viewport::-webkit-scrollbar { display: none; }
+.film-card { position: relative; flex: 0 0 var(--film-width); width: var(--film-width); aspect-ratio: 9 / 16; overflow: hidden; border-radius: 24px; background: #151515; scroll-snap-align: center; isolation: isolate; }
+.film-card video { display: block; width: 100%; height: 100%; object-fit: contain; background: #080808; }
+.film-carousel.is-ready .film-carousel__viewport { display: block; overflow: hidden; padding: 0; height: calc(var(--film-width) * 16 / 9 + 64px); touch-action: pan-y; }
+.film-carousel.is-ready .film-card { position: absolute; left: 50%; top: 50%; transform: translate(calc(-50% + var(--film-offset) * (var(--film-width) + var(--film-gap))), -50%) scale(.9); cursor: pointer; z-index: 1; }
+.film-carousel.is-ready .film-card video { opacity: .72; }
+.film-carousel.is-ready .film-card.is-current { transform: translate(-50%, -50%) scale(1); z-index: 3; }
+.film-carousel.is-ready .film-card.is-current video { opacity: 1; }
+.film-card__play { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 70px; height: 70px; padding: 0; transform: translate(-50%, -50%); border: 1px solid #ffffffb3; border-radius: 50%; color: #fff; background: #ffffff2b; cursor: pointer; z-index: 2; }
+.film-card__play svg { width: 24px; height: 24px; fill: currentColor; margin-left: 3px; }
+.film-card__play:hover { background: #ffffff4d; }
+.film-card.is-engaged .film-card__play, .film-carousel:not(.is-ready) .film-card__play { display: none; }
+.film-card.is-engaged { cursor: auto; }
+.film-card__error { position: absolute; inset: auto 12px 12px; z-index: 4; padding: 12px; margin: 0; border-radius: 8px; background: #111e; color: #fff; font-size: 12px; line-height: 1.6; }
+.film-card__error a { color: #dcff68; }
+.film-carousel__controls { display: flex; justify-content: center; align-items: center; gap: 24px; margin-top: 16px; }
+.film-carousel__controls[hidden] { display: none; }
+.film-carousel__arrow { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #ffffff3d; border-radius: 50%; color: #fff; background: transparent; cursor: pointer; }
+.film-carousel__arrow .i { width: 18px; height: 18px; }
+.film-carousel__arrow:hover { background: #ffffff14; }
+.film-carousel__dots { display: flex; align-items: center; gap: 2px; }
+.film-carousel__dot { display: grid; place-items: center; width: 28px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.film-carousel__dot::after { content: ''; display: block; width: 5px; height: 5px; border-radius: 50%; background: #ffffff55; }
+.film-carousel__dot[aria-pressed="true"]::after { width: 18px; border-radius: 8px; background: #dcff68; }
+.film-carousel button:focus-visible, .film-carousel video:focus-visible, .film-carousel__viewport:focus-visible { outline: 2px solid #dcff68; outline-offset: -4px; }
+.film-carousel a:focus-visible { outline: 2px solid #dcff68; outline-offset: 2px; }
+.film-carousel .film-card__play:focus-visible { outline-offset: 5px; }
+.practice__actions.services__cards { grid-template-columns: 1fr; }
+.practice__actions .mini-card { min-height: 160px; }
+html[data-mode="high"] .film-card { border-radius: 32px; }
+html[data-mode="high"][data-motion="full"] .film-carousel.is-ready .film-card { transition: transform 500ms cubic-bezier(.22,.7,.2,1); }
+html[data-mode="high"][data-motion="full"] .film-carousel.is-ready .film-card video { transition: opacity 350ms ease; }
+html[data-mode="high"][data-motion="full"] .film-card__play { backdrop-filter: blur(6px); }
+html[data-mode="high"] .film-carousel.is-ready .film-card.is-jumping { transition: none; }
+@media (max-width: 599px) {
+  .film-carousel { --film-width: min(72vw, 320px); --film-gap: 16px; }
+  .film-carousel.is-ready .film-carousel__viewport { height: calc(var(--film-width) * 16 / 9 + 40px); }
+  .film-card, html[data-mode="high"] .film-card { border-radius: 24px; }
+  .film-card__play { width: 60px; height: 60px; }
+  .film-carousel__controls { margin-top: 8px; gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-mode="high"] .film-carousel.is-ready .film-card, html[data-mode="high"] .film-carousel.is-ready .film-card video { transition: none; }
+  html[data-mode="high"] .film-card__play { backdrop-filter: none; }
+}

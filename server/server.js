@@ -154,7 +154,8 @@ function staticHeaders(fileReal, size) {
   return Object.assign({
     'Content-Type': MIME[ext] || 'application/octet-stream',
     'Content-Length': size,
-    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300'
+    // Source files are served directly, so refreshes must always read the current code.
+    'Cache-Control': ['.html', '.css', '.js'].includes(ext) ? 'no-store' : 'public, max-age=300'
   }, SECURITY_HEADERS);
 }
 
@@ -215,6 +216,7 @@ function serveStatic(req, res, url, options) {
         }
 
         const failBeforeHeaders = (streamErr) => {
+          if (req.aborted || res.destroyed || res.writableEnded) return;
           console.error('[static] read stream error:', streamErr.message);
           if (!opened || !res.headersSent) {
             sendStaticError(res, 500, 'Error reading file');
@@ -228,7 +230,7 @@ function serveStatic(req, res, url, options) {
         stream.once('open', () => {
           opened = true;
           stream.removeListener('error', failBeforeHeaders);
-          if (res.headersSent || res.writableEnded) {
+          if (req.aborted || res.destroyed || res.headersSent || res.writableEnded || stream.destroyed) {
             stream.destroy();
             return;
           }

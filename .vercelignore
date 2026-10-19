@@ -1,0 +1,8 @@
+.git
+.screens
+.vscode
+.env
+.env.*
+*.md
+server/tests
+server/data

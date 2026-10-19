@@ -45,12 +45,13 @@ describe('Stage 2 frontend contracts', () => {
     await close(server);
   });
 
-  it('ships a nonblocking analysis status region', async () => {
+  it('ships a centered analysis status with a loading indicator', async () => {
     const res = await get(port, '/');
     assert.equal(res.status, 200);
     assert.match(res.body, /id="analysis"/);
     assert.match(res.body, /role="status"/);
-    assert.match(res.body, /Analyzing Device Performance/);
+    assert.match(res.body, /Finding your best experience/);
+    assert.match(res.body, /analysis__loader/);
     assert.doesNotMatch(res.body, /analysis-skip|analysis-bar|progressbar/);
     assert.match(res.body, /data-adaptive-state', 'ready'/);
   });
@@ -63,11 +64,12 @@ describe('Stage 2 frontend contracts', () => {
     assert.doesNotMatch(res.body, /<header[^>]*\sinert/);
   });
 
-  it('wires the contact form to the inquiry endpoint with honest demo copy', async () => {
+  it('wires the contact form to the studio email with honest draft copy', async () => {
     const res = await get(port, '/');
-    assert.match(res.body, /action="\/api\/inquiries"/);
-    assert.match(res.body, /Privacy \/ demo note/);
-    assert.match(res.body, /are not emailed/i);
+    assert.match(res.body, /action="mailto:syphersolutions@gmail\.com\?subject=/);
+    assert.match(res.body, /Review the draft and press Send there/);
+    assert.match(res.body, /js\/contact-email\.js/);
+    assert.doesNotMatch(res.body, /action="\/api\/inquiries"/);
     assert.doesNotMatch(res.body, /Your message is on its way/);
   });
 

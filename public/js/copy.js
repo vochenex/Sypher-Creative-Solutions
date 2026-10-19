@@ -21,10 +21,17 @@
       MEDIUM: 'Some visual effects have been optimized for smoother performance.',
       BASIC: 'Visual effects have been reduced to improve performance.'
     },
+    /** Honest body when the device class is strong but OS reduce-motion keeps motion off. */
+    resultBodyReduced: {
+      HIGH: 'High quality media is on, but animations stay off because your system reduce-motion setting is enabled. Turn that setting off to see the full High experience.',
+      MEDIUM: 'Balanced quality is on, but animations stay off because your system reduce-motion setting is enabled.',
+      BASIC: 'Visual effects stay minimal. Animations are also off because your system reduce-motion setting is enabled.'
+    },
     resultEstimated: 'Result estimated from limited information.',
     resultFallback: 'We couldn\u2019t analyze your device reliably, so Basic mode is being used as a safe baseline.',
     resultManual: function (mode) { return 'You\u2019re using ' + title(mode) + ' mode (your choice).'; },
     resultVerified: 'Your device passed the smoothness test, so full effects are on.',
+    resultVerifiedReduced: 'Your device passed the smoothness test. Animations stay off while reduce-motion is on.',
 
     whyHigh: { cpu: 'Strong processor', fps: 'a smooth frame rate', memory: 'plenty of memory', webgl: 'full graphics support', screen: 'a comfortable screen resolution' },
     whyLow: { cpu: 'Fewer processor threads', memory: 'Limited memory', fps: 'A lower frame rate in the quick test', webgl: 'Limited graphics support', screen: 'A very high-resolution screen' },
@@ -52,7 +59,8 @@
       changed: function (mode) { return 'Display mode changed to ' + title(mode) + '.'; },
       auto: function (mode) { return 'Display mode set to Auto (' + title(mode) + ' for this device).'; },
       slow: 'High mode is on. If the site feels slow, switch to Basic.',
-      rmHigh: 'Your device\u2019s reduce-motion setting is on, so animations stay off. High mode still improves image and media quality.',
+      rmHigh: 'Your device can run High mode, but animations stay off while reduce-motion is on. You can show animations for this visit, or disable Reduce Motion in your system accessibility settings.',
+      rmAllow: 'Animations are on for this visit. Your system reduce-motion setting is unchanged.',
       estimated: 'We used a quick estimate to choose your display mode.',
       fallback: 'We couldn\u2019t analyze your device reliably, so Basic mode is being used.',
       downgrade: function (lighter) { return 'Things look a bit slow. Switch to ' + title(lighter) + ' for smoother scrolling?'; },

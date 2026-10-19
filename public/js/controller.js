@@ -5,6 +5,7 @@
   var cfg = S.config;
   var root = document.documentElement;
   var MODE_VALUES = ['high', 'medium', 'basic'];
+  var ASSET_VERSION = '20261019-high-autostart-1';
   var reducedQuery = null;
   try {
     if (window.matchMedia) reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -60,7 +61,7 @@
     var el = document.getElementById(id);
     if (wanted && !el) {
       el = document.createElement('link');
-      el.id = id; el.rel = 'stylesheet'; el.href = href;
+      el.id = id; el.rel = 'stylesheet'; el.href = href + '?v=' + ASSET_VERSION;
       document.head.appendChild(el);
     } else if (!wanted && el) {
       el.parentNode.removeChild(el);
@@ -69,11 +70,16 @@
 
   var highEffectsLoading = null;
   var effectsEpoch = 0;
+  var modeRevision = 0;
 
   function wantsHighEffects(flags) {
     if (state.mode !== 'high' || state.motion !== 'full') return false;
     flags = flags || state.flags || {};
     return !!(flags.webglScene || flags.cursorEffects || flags.parallax || flags.hoverEffects === 'tilt-preview');
+  }
+
+  function setHighFxClass(on) {
+    root.classList.toggle('high-fx', !!on);
   }
 
   function loadHighEffects() {
@@ -82,7 +88,7 @@
     function load(src) {
       return new Promise(function (resolve, reject) {
         var s = document.createElement('script');
-        s.src = src;
+        s.src = src + '?v=' + ASSET_VERSION;
         s.onload = resolve;
         s.onerror = function () { reject(new Error(src + ' failed to load')); };
         document.head.appendChild(s);
@@ -106,12 +112,20 @@
         if (epoch !== effectsEpoch) return;
         if (!wantsHighEffects(state.flags)) {
           if (fx && fx.stop) fx.stop();
+          setHighFxClass(false);
           return;
         }
-        if (fx && fx.start) fx.start(state.flags, { epoch: epoch, getEpoch: function () { return effectsEpoch; } });
-      }, function () {});
-    } else if (S.highEffects) {
-      S.highEffects.stop();
+        var ok = fx && fx.start
+          ? fx.start(state.flags, { epoch: epoch, getEpoch: function () { return effectsEpoch; } })
+          : false;
+        setHighFxClass(ok !== false && !!(fx && fx.isActive ? fx.isActive() : ok));
+      }, function () {
+        if (epoch !== effectsEpoch) return;
+        setHighFxClass(false);
+      });
+    } else {
+      if (S.highEffects) S.highEffects.stop();
+      setHighFxClass(false);
     }
   }
 
@@ -125,18 +139,35 @@
     opts = opts || {};
     mode = safeMode(mode, state.mode || 'basic');
     source = source === 'manual' ? 'manual' : 'auto';
-    var changed = mode !== state.mode || source !== state.source || opts.force;
+    var changed = mode !== state.mode || source !== state.source || opts.force || opts.restartMotion;
     state.mode = mode;
     state.source = source;
+    // Choosing (or restoring) High opts into its animations without a second action.
+    // Auto and the lighter modes continue to follow the system/session preference.
+    state.motion = mode === 'high' && source === 'manual' ? 'full' : resolveMotion();
     state.flags = effectiveFlags(mode);
+    var revision = ++modeRevision;
 
     var commit = function () {
+      // A newer choice may arrive before a view-transition callback executes.
+      if (revision !== modeRevision) return;
       writeRoot();
       applyAssets(state.flags);
+      if (changed && state.ready) {
+        emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags, restartMotion: !!opts.restartMotion });
+      }
+      liveWatch.reset();
     };
     var canTransition = !opts.initial && document.startViewTransition && state.flags.pageTransitions === 'view-transition';
-    if (canTransition) document.startViewTransition(commit);
-    else commit();
+    if (canTransition) {
+      try {
+        var transition = document.startViewTransition(commit);
+        if (transition && transition.updateCallbackDone) transition.updateCallbackDone.catch(commit);
+        // Superseded transitions can be skipped; they must not reject globally.
+        if (transition && transition.ready) transition.ready.catch(function () {});
+        if (transition && transition.finished) transition.finished.catch(function () {});
+      } catch (e) { commit(); }
+    } else commit();
 
     S.api.getModeConfig(mode).then(function (data) {
       if (!data || !data.flags) return;
@@ -144,36 +175,80 @@
       state.serverFlags[mode] = data.flags;
       if (state.mode === mode && before !== JSON.stringify(data.flags)) {
         state.flags = effectiveFlags(mode);
-        applyAssets(state.flags);
-        emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags });
+        // Pending view transitions publish their flags together with the DOM commit.
+        if (root.getAttribute('data-mode') === mode) {
+          applyAssets(state.flags);
+          emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags });
+        }
       }
     }, function () {});
-
-    if (changed && state.ready) {
-      emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags });
-    }
-    liveWatch.reset();
   }
 
   /* ---------- Accessibility Guard ---------- */
 
-  function setMotion(reduced) {
-    state.motion = reduced ? 'reduced' : 'full';
+  function systemWantsReduced() {
+    return !!(reducedQuery && reducedQuery.matches);
+  }
+
+  /** data-motion source of truth: session allow > OS preference. */
+  function resolveMotion() {
+    if (S.storage && S.storage.isMotionAllowed && S.storage.isMotionAllowed()) return 'full';
+    return systemWantsReduced() ? 'reduced' : 'full';
+  }
+
+  function offerMotionAllow() {
+    if (!S.debug || !S.debug.enabled) return;
+    notice('reduced-motion', S.copy.toast.rmHigh, {
+      tone: 'info',
+      persistent: true,
+      actions: [
+        {
+          label: 'Show animations this visit',
+          run: function () {
+            if (S.storage && S.storage.allowMotion) S.storage.allowMotion();
+            applyResolvedMotion({ announceAllow: true });
+          }
+        }
+      ]
+    });
+  }
+
+  function applyResolvedMotion(opts) {
+    opts = opts || {};
+    ++modeRevision;
+    var next = resolveMotion();
+    var changed = next !== state.motion;
+    state.motion = next;
     state.flags = effectiveFlags(state.mode);
     writeRoot();
     applyAssets(state.flags);
-    if (state.ready) {
+    // Restart the live-FPS grace window after motion is armed so DevTools / cold start
+    // does not immediately offer a Medium downgrade over the opt-in confirmation.
+    if (changed && state.motion === 'full' && liveWatch && liveWatch.reset) liveWatch.reset();
+    if (state.ready && (changed || opts.force)) {
       emit('modechange', { mode: state.mode, source: state.source, motion: state.motion, flags: state.flags });
-      if (reduced && state.mode === 'high') notice('reduced-motion', S.copy.toast.rmHigh);
     }
+    if (opts.announceAllow && state.motion === 'full') {
+      notice('motion-allowed', S.copy.toast.rmAllow);
+    } else if (state.ready && state.motion === 'reduced' && state.mode === 'high' && !opts.silent) {
+      offerMotionAllow();
+    }
+  }
+
+  function setMotion(systemReduced) {
+    // Media-query change: if the OS turned reduce-motion off, drop a stale session allow.
+    if (systemReduced === false && S.storage && S.storage.clearMotionAllow) {
+      S.storage.clearMotionAllow();
+    }
+    applyResolvedMotion();
   }
 
   if (reducedQuery) {
     var onMotion = function (e) { setMotion(e.matches); };
     if (reducedQuery.addEventListener) reducedQuery.addEventListener('change', onMotion);
     else if (reducedQuery.addListener) reducedQuery.addListener(onMotion);
-    state.motion = reducedQuery.matches ? 'reduced' : 'full';
   }
+  state.motion = resolveMotion();
 
   /* ---------- Profile building ---------- */
 
@@ -265,9 +340,14 @@
 
   /* ---------- Analysis ---------- */
 
+  var initialized = false, analysisRunning = false;
+
   function progress(step, percent) { emit('progress', { step: step, percent: Math.round(percent) }); }
 
   function runAnalysis(opts) {
+    if (analysisRunning) return;
+    analysisRunning = true;
+    liveWatch.stop();
     opts = opts || {};
     var inlineStatus = opts.inline !== false;
     var t = cfg.timing;
@@ -320,6 +400,7 @@
       benchCtl = S.detect.runBenchmark(canvas, t, function (p) { progress('benchmark', 35 + p * 55); });
       return benchCtl.promise.then(function (b) { conclude(signals, b); });
     }).catch(function () {
+      if (finished) return;
       setPhase('FALLBACK_DEFAULT');
       conclude(null);
     });
@@ -347,8 +428,27 @@
 
   /* ---------- Final resolution ---------- */
 
+  function scoreBands() {
+    var t = cfg.scoring.thresholds;
+    return [t.high, t.medium, t.estimatedHigh].join(':');
+  }
+
+  function refreshCachedClass(profile) {
+    if (profile.scoreBands === scoreBands() || profile.source === 'fallback') return;
+    // Reuse saved measurements when score bands change; this does not run detection again.
+    var breakdown = profile.breakdown;
+    var available = breakdown ? ['cpu', 'memory', 'screen', 'webgl', 'fps'].filter(function (key) {
+      return typeof breakdown[key] === 'number';
+    }).length : 3;
+    var result = S.classify.classify({ score: profile.score, availableCount: available }, profile.signals || {}, cfg.scoring);
+    profile.class = result.cls;
+    profile.appliedCaps = result.appliedCaps;
+    profile.benchmarkVerified = result.benchmarkVerified;
+  }
+
   function finalize(profile, opts) {
     opts = opts || {};
+    profile.scoreBands = scoreBands();
     state.profile = profile;
     S.storage.setProfile(profile);
     S.storage.markSession();
@@ -363,6 +463,7 @@
 
     var firstRender = !state.ready;
     var finish = function () {
+      analysisRunning = false;
       if (!opts.cached && S.ui.banner) S.ui.banner.show(profile, state.mode, state.source);
       if (firstRender) {
         state.ready = true;
@@ -375,10 +476,13 @@
         notice('fallback', S.copy.toast.fallback, { tone: 'warning', persistent: true, actions: [{ label: 'Try again', run: rerun }] });
       }
       if (source === 'manual' && mode === 'high' && profile.class === 'BASIC') slowDeviceWarning();
-      if (state.motion === 'reduced' && state.mode === 'high') notice('reduced-motion', S.copy.toast.rmHigh);
+      if (state.motion === 'reduced' && state.mode === 'high') offerMotionAllow();
       liveWatch.start();
     };
 
+    if (!opts.cached && S.ui.analysis && S.ui.analysis.setDoneMessage) {
+      S.ui.analysis.setDoneMessage('Your ' + S.copy.title(mode) + ' experience is ready');
+    }
     if (S.ui.analysis && S.ui.analysis.hide) S.ui.analysis.hide(finish);
     else finish();
   }
@@ -410,7 +514,7 @@
     var mode = choice === 'auto' ? safeMode(detected, 'basic') : safeMode(choice, state.mode);
     var source = choice === 'auto' ? 'auto' : 'manual';
     setPhase(source === 'manual' ? 'OVERRIDDEN' : 'RENDERED');
-    applyMode(mode, source);
+    applyMode(mode, source, { restartMotion: choice === 'high' });
 
     if (!opts.silent) {
       notice('mode-changed', choice === 'auto' ? S.copy.toast.auto(mode) : S.copy.toast.changed(mode), {
@@ -421,12 +525,13 @@
         } }]
       });
     }
-    if (opts.confirmed && choice === 'high') slowDeviceWarning();
-    if (state.motion === 'reduced' && mode === 'high') notice('reduced-motion', S.copy.toast.rmHigh);
+    if (opts.confirmed && choice === 'high' && detected === 'BASIC') slowDeviceWarning();
+    if (state.motion === 'reduced' && mode === 'high') offerMotionAllow();
     return 'applied';
   }
 
   function rerun() {
+    if (analysisRunning) return;
     S.storage.clearProfile();
     runAnalysis({ inline: true });
   }
@@ -479,11 +584,14 @@
   /* ---------- Boot ---------- */
 
   function init() {
+    if (initialized) return;
+    initialized = true;
     writeRoot();
     applyMode(state.mode, state.source, { initial: true, force: true });
-    var cached = root.getAttribute('data-adaptive-state') === 'cached' && S.storage.hasSession()
-      ? S.storage.getProfile(cfg.timing.profileTtlHours) : null;
+    var simulating = S.debug && S.debug.sim && S.debug.sim.length;
+    var cached = !simulating ? S.storage.getProfile(cfg.timing.profileTtlHours) : null;
     if (cached && cached.class) {
+      refreshCachedClass(cached);
       setPhase('CLASSIFIED');
       finalize(cached, { cached: true });
     } else {
@@ -493,6 +601,10 @@
 
   S.controller = {
     init: init,
+    allowMotion: function () {
+      if (S.storage && S.storage.allowMotion) S.storage.allowMotion();
+      applyResolvedMotion({ announceAllow: true });
+    },
     setOverride: setOverride,
     rerun: rerun,
     notice: notice,

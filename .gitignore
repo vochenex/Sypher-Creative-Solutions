@@ -4,6 +4,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 .screens/
+.vercel/
+.env
+.env.*
+!.env.example
 
 # Runtime personal data — never commit visitor inquiries
 server/data/inquiries.json

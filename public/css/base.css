@@ -168,6 +168,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; color: var(--text); font-size: 1.1rem; font-family: var(--font-display); font-stretch: var(--display-stretch); letter-spacing: -0.01em; }
 .logo svg { color: var(--accent); }
+.logo__mark { width: 44px; height: 44px; object-fit: contain; flex: none; }
 .nav { margin-inline: auto; }
 .nav__list { display: flex; gap: 2px; list-style: none; }
 .nav__list a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; text-decoration: none; color: var(--muted); border-radius: 999px; font-size: 0.92rem; font-weight: 500; }
@@ -493,6 +494,13 @@ textarea { resize: vertical; min-height: 128px; }
 .form__status[data-tone="error"] { color: #f0b4a4; }
 .form__status[data-tone="warning"] { color: #e6d09a; }
 .form__note { margin: 0 0 16px; color: var(--muted); font-size: 0.88rem; }
+.form__note a { color: var(--text); overflow-wrap: anywhere; }
+.form__status[data-tone="info"] { color: var(--muted); line-height: 1.7; }
+.form__email-fallback { padding: 18px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.form__email-fallback[hidden] { display: none; }
+.form__email-fallback > a { display: inline-flex; min-height: 44px; align-items: center; color: var(--accent); }
+.form__email-fallback summary { padding-block: 14px; color: var(--muted); cursor: pointer; font-size: 13px; }
+.form__email-fallback textarea { font: 13px/1.7 var(--font-body); }
 .field--honeypot {
   position: absolute !important; left: -10000px !important; top: auto !important;
   width: 1px !important; height: 1px !important; overflow: hidden !important;
@@ -523,19 +531,41 @@ textarea { resize: vertical; min-height: 128px; }
 .site-footer .small { color: rgba(20, 26, 7, 0.75); margin: 0; }
 .site-footer :focus-visible { box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px var(--accent-ink); }
 
-/* ---------- Nonblocking analysis status ---------- */
+/* ---------- Centered first-scan status ---------- */
 .analysis {
-  position: fixed; top: calc(var(--header-top) + var(--header-h) + 10px); right: 24px; z-index: 55;
-  width: min(320px, calc(100% - 32px)); padding: 12px 14px;
-  border-radius: var(--r-md); border: 1px solid var(--line);
-  background: rgba(22, 25, 22, 0.96); box-shadow: var(--shadow);
-  pointer-events: none;
+  position: fixed; inset: 0; z-index: 980;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(13, 15, 13, 0.3); pointer-events: none;
+  opacity: 0; transition: opacity 220ms ease;
 }
 .analysis[hidden] { display: none !important; }
-.analysis.is-open { display: grid; gap: 2px; }
+.analysis.is-open { opacity: 1; }
+.analysis.is-leaving { opacity: 0; }
+.analysis__panel {
+  width: min(360px, 100%); padding: 32px 26px 26px;
+  display: grid; justify-items: center; gap: 12px; text-align: center;
+  border: 1px solid #bfdc9138; border-radius: 28px;
+  color: #f2f1e9; background: #181e16; box-shadow: 0 24px 80px #0004;
+  animation: analysis-arrive 300ms cubic-bezier(.16, 1, .3, 1) both;
+}
+.analysis__loader {
+  position: relative; display: block; width: 48px; height: 48px; margin-bottom: 8px;
+  border: 2px solid #bfdc9126; border-top-color: #bfdc91; border-right-color: #bfdc91;
+  border-radius: 50%; animation: analysis-spin 900ms linear infinite;
+}
+.analysis.is-done .analysis__loader { animation: none; border-color: #bfdc91; background: #bfdc9110; }
+.analysis.is-done .analysis__loader::after {
+  content: ""; position: absolute; left: 14px; top: 12px;
+  width: 15px; height: 9px; border-left: 2px solid #bfdc91; border-bottom: 2px solid #bfdc91;
+  transform: rotate(-45deg);
+}
+.analysis__eyebrow { margin: 0; color: #bfdc91; font-size: 9px; font-weight: 600; letter-spacing: .18em; }
 .analysis.is-done .analysis__title { color: var(--accent); }
-.analysis__title { margin: 0; font-size: 0.92rem; font-weight: 600; }
-.analysis__step { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.analysis__title { margin: 0; font-size: 1.2rem; font-weight: 600; line-height: 1.3; }
+.analysis__step { margin: 0; min-height: 2.6em; font-size: .82rem; line-height: 1.3; color: #b9c0b2; }
+.analysis__note { margin: 0; padding-top: 4px; font-size: .7rem; color: #87917f; }
+@keyframes analysis-spin { to { transform: rotate(360deg); } }
+@keyframes analysis-arrive { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
 
 /* ---------- Result Banner ---------- */
 .result-banner {
@@ -572,10 +602,24 @@ textarea { resize: vertical; min-height: 128px; }
 .toast__close { width: 32px; height: 32px; flex: none; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 1.1rem; }
 .toast__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* ---------- Performance Dashboard ---------- */
+/* ---------- Performance notch and dashboard ---------- */
+.chip.performance-notch {
+  position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: 0; z-index: 65;
+  min-height: 62px; padding: 10px 20px calc(10px + env(safe-area-inset-bottom)); gap: 12px;
+  border-radius: 20px 20px 0 0; border: 1px solid #46513b; border-bottom: 0;
+  color: #f2f1e9; background: #20291e; box-shadow: 0 -4px 30px #0002;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+.performance-notch:hover, .performance-notch[aria-expanded="true"] { background: #2d3a27; border-color: #bfdc91; }
+.performance-notch__text { display: grid; gap: 1px; text-align: left; }
+.performance-notch__title { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .13em; color: #b3c0a8; }
+.performance-notch .chip__label { font-size: 12px; }
+.performance-notch__status { height: 5px; width: 5px; border-radius: 50%; background: #c1e58b; }
+.toast-region { bottom: calc(86px + env(safe-area-inset-bottom)); }
+html:not(.js) .performance-notch { display: none; }
 .dash-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(5, 6, 5, 0.6); }
 .dashboard {
-  position: fixed; z-index: 80; top: calc(var(--header-top) + var(--header-h) + 12px); right: 12px; bottom: 12px; width: 384px;
+  position: fixed; z-index: 80; top: auto; right: 20px; bottom: calc(76px + env(safe-area-inset-bottom)); width: 384px; max-height: min(720px, calc(100dvh - 100px));
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow);
 }
@@ -642,11 +686,22 @@ html[data-mode="basic"] .gauge__value { stroke: var(--accent-3); }
     padding: calc(var(--header-top) + var(--header-h) + 32px) 24px 24px; display: none; margin: 0;
   }
   html.js .nav.is-open { display: block; z-index: 40; }
+  /* Keep the fixed menu rooted in the viewport, outside header blur/transform containment. */
+  html.js .site-header .site-header__inner { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  html.js.menu-open .site-header { transform: none !important; }
+  html.js.menu-open .site-header__inner { background: #f5f4ec; box-shadow: none; }
+  html.js .nav.is-open { height: 100dvh; overflow-y: auto; background: #f2f1e9; color: #263021; }
+  html.js .site-header .logo, html.js .site-header__actions { position: relative; z-index: 41; }
+  html.js.menu-open .site-header .logo { color: #263021; }
+  html.js.menu-open .site-header .menu-btn { background: #e9ecdf; border-color: #d4d9c8; color: #3c4c2d; }
+  html.js.menu-open .menu-btn__bars, html.js.menu-open .menu-btn__bars::before, html.js.menu-open .menu-btn__bars::after { background: #35432a; }
   html.js .nav__list { flex-direction: column; gap: 4px; }
   html.js .nav__list a {
     font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: var(--display-weight);
     font-size: 1.8rem; min-height: 60px; color: var(--text); padding: 0 8px; letter-spacing: -0.02em;
   }
+  html.js .nav.is-open .nav__list { margin: 0; padding: 0; }
+  html.js .nav.is-open a { color: #263021; }
   html:not(.js) .menu-btn { display: none; }
   html:not(.js) .nav { position: static; display: block; padding: 0; margin: 0; background: transparent; }
   html:not(.js) .nav__list { flex-wrap: wrap; gap: 2px; }
@@ -739,13 +794,16 @@ html[data-mode="basic"] .gauge__value { stroke: var(--accent-3); }
   .logo span { display: none; }
 }
 
-/* ---------- Reduced-motion guard (always wins, with or without JavaScript) ---------- */
+/* ---------- Reduced-motion guard ----------
+   With JavaScript, data-motion is the source of truth (Accessibility Guard).
+   The @media block is a no-JS backup only — it must not override data-motion="full"
+   after a visitor opts into motion for this visit. */
 html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-motion="reduced"] *::after {
   animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important; scroll-behavior: auto !important;
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  html:not(.js) *, html:not(.js) *::before, html:not(.js) *::after {
     animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important; scroll-behavior: auto !important;
   }

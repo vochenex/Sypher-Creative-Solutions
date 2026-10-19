@@ -18,7 +18,7 @@ const { HttpError } = require('../lib/http');
 const DATA_FILE = path.join(__dirname, '..', 'data', 'inquiries.json');
 const MAX_STORE = 500;
 const MAX_BYTES = 2 * 1024 * 1024;
-const SERVICES = new Set(['', 'Branding', 'Web Development', 'Multimedia', 'Digital Marketing']);
+const SERVICES = new Set(['', 'Branding', 'Web Development', 'Multimedia']);
 const BUDGETS = new Set(['', 'Under $5k', '$5k to $15k', '$15k to $50k', '$50k+', 'Prefer not to say']);
 
 /** Recent clientRequestId values to reject accidental double-submits. */

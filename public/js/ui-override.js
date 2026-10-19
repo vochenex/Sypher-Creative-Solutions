@@ -27,7 +27,7 @@
 
   function apply(choice) {
     clearTimeout(debounce);
-    if (choice === currentChoice()) { warn.hidden = true; return; }
+    if (choice === currentChoice() && choice !== 'high') { warn.hidden = true; return; }
     var result = S.controller.setOverride(choice);
     if (result === 'confirm') {
       pendingFocus = radios.filter(function (r) { return r.value === 'high'; })[0];
@@ -75,6 +75,7 @@
     var r = radios.filter(function (x) { return x.value === 'auto'; })[0];
     if (r) r.focus();
   });
+  $('motion-allow').addEventListener('click', function () { S.controller.allowMotion(); });
 
   ['adaptive:ready', 'adaptive:modechange', 'adaptive:profileupdate'].forEach(function (ev) {
     document.addEventListener(ev, function () { if (warn.hidden) sync(); });

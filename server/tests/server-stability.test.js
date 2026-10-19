@@ -81,6 +81,16 @@ describe('server stability (F1)', () => {
     assert.equal(res.body.length, 0);
   });
 
+  it('does not cache page code while retaining image caching', async () => {
+    for (const path of ['/', '/css/base.css', '/js/site.js', '/js/hero-carousel.js?v=20261018-motion-2']) {
+      const res = await request(port, { path });
+      assert.equal(res.status, 200);
+      assert.equal(res.headers['cache-control'], 'no-store', path);
+    }
+    const asset = await request(port, { path: '/assets/images/work-lumen.jpg' });
+    assert.equal(asset.headers['cache-control'], 'public, max-age=300');
+  });
+
   it('returns 400 for malformed percent escapes without crashing', async () => {
     const res = await request(port, { path: '/%ZZ' });
     assert.equal(res.status, 400);

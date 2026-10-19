@@ -40,7 +40,7 @@
     '  vec2 q = vec2(fbm(p + t), fbm(p + vec2(5.2, 1.3) - t));',
     '  vec2 r = vec2(fbm(p + 2.6 * q + vec2(1.7, 9.2) + t * 1.4), fbm(p + 2.6 * q + vec2(8.3, 2.8) - t));',
     '  float f = fbm(p + 2.8 * r + (u_mouse - 0.5) * 0.6);',
-    '  vec3 paper = vec3(0.949, 0.953, 0.937);',
+    '  vec3 paper = vec3(0.949, 0.945, 0.914);',
     '  vec3 silk  = vec3(0.880, 0.894, 0.862);',
     '  vec3 lime  = vec3(0.749, 0.886, 0.435);',
     '  vec3 col = mix(paper, silk, smoothstep(0.45, 0.95, f) * 0.75);',
@@ -72,7 +72,12 @@
 
   function heroInit() {
     if (hero.gl) return true;
-    var gl = hero.canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'low-power', preserveDrawingBuffer: false });
+    if (!hero.canvas) hero.canvas = document.getElementById('hero-canvas');
+    if (!hero.canvas) return false;
+    var opts = { antialias: false, alpha: false, powerPreference: 'low-power', preserveDrawingBuffer: false };
+    // These shaders use GLSL ES 1.00, so request the matching WebGL context.
+    var gl = hero.canvas.getContext('webgl', opts) ||
+      hero.canvas.getContext('experimental-webgl', opts);
     if (!gl) return false;
     try {
       var prog = gl.createProgram();
@@ -93,7 +98,10 @@
     } catch {
       return false;
     }
-    hero.canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); heroStop(); });
+    hero.canvas.addEventListener('webglcontextlost', function (e) {
+      e.preventDefault();
+      if (e.target === hero.canvas) heroStop();
+    });
     return true;
   }
 
@@ -137,6 +145,7 @@
   }
 
   function heroStop() {
+    if (!hero.canvas) return;
     hero.canvas.classList.remove('is-live');
     if (hero.raf) cancelAnimationFrame(hero.raf);
     hero.raf = null;
@@ -184,7 +193,8 @@
     var spot = e.target.closest && e.target.closest('[data-spot]');
     if (spot && !spot.contains(e.relatedTarget)) spot.classList.remove('is-lit');
     if (sheetOn && sheet.contains(e.target) && !(e.relatedTarget && sheet.contains(e.relatedTarget))) {
-      gsap.to(sheet, { rotationX: 0, rotationY: 0, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
+      sheetRX(0);
+      sheetRY(0);
     }
   }
   document.addEventListener('pointermove', onPointerMove, { passive: true });
@@ -200,7 +210,8 @@
         xTo((e.clientX - (r.left + r.width / 2)) * 0.28);
         yTo((e.clientY - (r.top + r.height / 2)) * 0.36);
       }
-      function leave() { gsap.to(el, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.4)', overwrite: true }); }
+      // Reuse the same live setters: an overwriting reset kills quickTo on later visits.
+      function leave() { xTo(0); yTo(0); }
       el.addEventListener('pointermove', move);
       el.addEventListener('pointerleave', leave);
       return { el: el, move: move, leave: leave };
@@ -212,14 +223,18 @@
   var tilts = [];
 
   function sheetTiltStart() {
-    if (sheetOn) return;
+    if (!sheet || sheetOn) return;
     sheetOn = true;
     gsap.set(sheet, { transformPerspective: 1600, transformOrigin: '50% 42%' });
     sheetRX = gsap.quickTo(sheet, 'rotationX', { duration: 0.8, ease: 'power3.out' });
     sheetRY = gsap.quickTo(sheet, 'rotationY', { duration: 0.8, ease: 'power3.out' });
   }
   function sheetTiltStop() {
+    if (!sheet) return;
     sheetOn = false;
+    if (sheetRX) sheetRX.tween.kill();
+    if (sheetRY) sheetRY.tween.kill();
+    sheetRX = sheetRY = null;
     gsap.set(sheet, { clearProps: 'transform' });
   }
 
@@ -235,7 +250,7 @@
         ry(((e.clientX - b.left) / b.width - 0.5) * 12);
         rx(-((e.clientY - b.top) / b.height - 0.5) * 9);
       }
-      function leave() { gsap.to(el, { rotationX: 0, rotationY: 0, duration: 0.7, ease: 'power3.out', overwrite: 'auto' }); }
+      function leave() { rx(0); ry(0); }
       el.addEventListener('pointermove', move);
       el.addEventListener('pointerleave', leave);
       return { el: el, move: move, leave: leave };
@@ -245,7 +260,8 @@
     tilts.forEach(function (t) {
       t.el.removeEventListener('pointermove', t.move);
       t.el.removeEventListener('pointerleave', t.leave);
-      gsap.set(t.el, { clearProps: 'transform' });
+      gsap.killTweensOf(t.el);
+      gsap.set(t.el, { clearProps: 'transform,transformOrigin' });
     });
     tilts = [];
   }
@@ -254,7 +270,8 @@
     magnets.forEach(function (m) {
       m.el.removeEventListener('pointermove', m.move);
       m.el.removeEventListener('pointerleave', m.leave);
-      gsap.set(m.el, { clearProps: 'transform' });
+      gsap.killTweensOf(m.el);
+      gsap.set(m.el, { clearProps: 'transform,transformOrigin' });
     });
     magnets = [];
   }
@@ -309,7 +326,7 @@
     ctx = gsap.context(function () {
       intro();
 
-      gsap.to('.hero__spark--a', { rotation: 360, duration: 40, ease: 'none', repeat: -1 });
+      if (document.querySelector('.hero__spark--a')) gsap.to('.hero__spark--a', { rotation: 360, duration: 40, ease: 'none', repeat: -1 });
 
       ScrollTrigger.create({
         start: 0, end: 'max',
@@ -324,8 +341,12 @@
       if (flags.parallax) {
         // Transform the title and image themselves: a transformed ancestor of the portrait would isolate its multiply blend.
         var heroScroll = function () { return { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true }; };
-        gsap.to('.hero__title', { y: -60, ease: 'none', scrollTrigger: heroScroll() });
-        gsap.to(['.hero__portrait img', '.hero__disc'], { y: 70, ease: 'none', scrollTrigger: heroScroll() });
+        if (document.querySelector('.hero__title')) {
+          gsap.to('.hero__title', { y: -60, ease: 'none', scrollTrigger: heroScroll() });
+          gsap.to(['.hero__portrait img', '.hero__disc'], { y: 70, ease: 'none', scrollTrigger: heroScroll() });
+        } else if (document.querySelector('.hero-showcase__intro')) {
+          gsap.to('.hero-showcase__intro', { y: -45, ease: 'none', scrollTrigger: heroScroll() });
+        }
         document.querySelectorAll('[data-parallax]').forEach(function (img) {
           gsap.fromTo(img, { yPercent: -5 }, {
             yPercent: 5, ease: 'none',
@@ -341,21 +362,14 @@
         });
       });
 
-      gsap.fromTo('.video-block', {
-        clipPath: 'inset(6% 7% 6% 7% round 56px)', rotationX: 12, transformPerspective: 1200, transformOrigin: 'center bottom'
-      }, {
-        clipPath: 'inset(0% 0% 0% 0% round 32px)', rotationX: 0, ease: 'none',
-        scrollTrigger: { trigger: '.video-block', start: 'top 92%', end: 'center 58%', scrub: 0.6 }
-      });
-      gsap.fromTo('.services__panel', { rotationX: 7, transformPerspective: 1400, transformOrigin: 'center top' }, {
-        rotationX: 0, ease: 'none',
-        scrollTrigger: { trigger: '.services__panel', start: 'top 95%', end: 'top 45%', scrub: true }
-      });
+      // Perspective on this tall panel can widen the page on a phone.
+      if (window.innerWidth >= 1024 && finePointer && finePointer.matches && document.querySelector('.services__panel')) {
+        gsap.fromTo('.services__panel', { rotationX: 7, transformPerspective: 1400, transformOrigin: 'center top' }, {
+          rotationX: 0, ease: 'none',
+          scrollTrigger: { trigger: '.services__panel', start: 'top 95%', end: 'top 45%', scrub: true }
+        });
+      }
 
-      gsap.fromTo('#steps', { '--progress': 0 }, {
-        '--progress': 1, ease: 'none',
-        scrollTrigger: { trigger: '#steps', start: 'top 82%', end: 'bottom 62%', scrub: 0.5 }
-      });
 
       var loop = gsap.to('.marquee__track', { xPercent: -50, ease: 'none', duration: 42, repeat: -1 });
       ScrollTrigger.create({
@@ -379,7 +393,7 @@
     start: function (flags, meta) {
       flags = flags || {};
       meta = meta || {};
-      // Refuse incompatible states (Basic/Medium, reduced motion, or stale generation).
+      // Refuse incompatible or stale generations so Basic/Medium/reduced never keep High motion.
       if (root.getAttribute('data-mode') !== 'high') { this.stop(); return false; }
       if (root.getAttribute('data-motion') !== 'full') { this.stop(); release(); return false; }
       if (typeof meta.getEpoch === 'function' && meta.epoch != null && meta.getEpoch() !== meta.epoch) {
@@ -399,64 +413,37 @@
 
       if (!started) {
         started = true;
-        buildScenes(flags);
-        window.addEventListener('load', function () { ScrollTrigger.refresh(); }, { once: true });
+        try {
+          buildScenes(flags);
+          window.addEventListener('load', function () { ScrollTrigger.refresh(); }, { once: true });
+        } catch (err) {
+          started = false;
+          if (ctx) { try { ctx.revert(); } catch (e) { /* ignore */ } ctx = null; }
+          release();
+          return false;
+        }
       }
       return true;
     },
     stop: function () {
       started = false;
+      introPlayed = false;
       heroStop();
       pointerOn = false;
       document.querySelectorAll('[data-spot].is-lit').forEach(function (el) { el.classList.remove('is-lit'); });
       magnetsStop();
       tiltsStop();
       sheetTiltStop();
-      header.classList.remove('is-tucked');
+      if (header) header.classList.remove('is-tucked');
       if (ctx) { ctx.revert(); ctx = null; }
       try {
         if (ScrollTrigger && ScrollTrigger.getAll) {
           ScrollTrigger.getAll().forEach(function (t) { t.kill(); });
         }
       } catch (e) { /* ignore */ }
-      try {
-        // Drop any leftover High timelines so Basic/Medium do not keep animating.
-        if (gsap && gsap.globalTimeline && gsap.globalTimeline.getChildren) {
-          gsap.globalTimeline.getChildren(true, true, true).forEach(function (tw) { tw.kill(); });
-        }
-      } catch (e2) { /* ignore */ }
       document.querySelectorAll('[data-count]').forEach(function (el) { el.textContent = countFinal(el); });
     },
     setPaused: function (p) { hero.paused = p; if (!p) heroKick(); },
-    isActive: function () { return !!started; },
-    /** Debug/QA snapshot of live High-effect instances (not merely downloaded scripts). */
-    inspect: function () {
-      var triggers = 0;
-      var tweens = 0;
-      try {
-        if (ScrollTrigger && ScrollTrigger.getAll) triggers = ScrollTrigger.getAll().length;
-      } catch (e) { triggers = -1; }
-      try {
-        if (gsap && gsap.globalTimeline && gsap.globalTimeline.getChildren) {
-          tweens = gsap.globalTimeline.getChildren(true, true, false).length;
-        }
-      } catch (e2) { tweens = -1; }
-      return {
-        moduleLoaded: true,
-        active: !!started,
-        mode: root.getAttribute('data-mode'),
-        motion: root.getAttribute('data-motion'),
-        scrollTriggers: triggers,
-        gsapTweens: tweens,
-        webglContext: !!hero.gl,
-        heroRaf: !!hero.raf,
-        heroLiveClass: !!(hero.canvas && hero.canvas.classList && hero.canvas.classList.contains('is-live')),
-        magnets: magnets.length,
-        tilts: tilts.length,
-        sheetTilt: !!sheetOn,
-        pointerOn: !!pointerOn,
-        hasContext: !!ctx
-      };
-    }
+    isActive: function () { return !!started; }
   };
 })(window.Sypher);

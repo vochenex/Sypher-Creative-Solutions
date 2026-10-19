@@ -41,8 +41,8 @@ All of these live in configuration (the `scoring` and `timing` blocks of `modes.
 | `RESULT_BANNER_DISMISS_MS` | 6000 ms (paused while hovered or focused) | Result Banner |
 | `TOAST_DISMISS_MS` | 6000 ms for info toasts; warning toasts do not auto-dismiss | Notices and Toasts |
 | `PROFILE_TTL_MS` | 24 hours | Preference Store |
-| `THRESHOLD_HIGH` | score >= 70 | Classifier |
-| `THRESHOLD_MEDIUM` | score 40 to 69 | Classifier |
+| `THRESHOLD_HIGH` | score >= 80 | Classifier |
+| `THRESHOLD_MEDIUM` | score 60 to 79 | Classifier |
 | `TOUCH_CAP_VIEWPORT_PX` | viewport width < 1024 CSS px | Classifier (mobile/touch cap) |
 | `TOUCH_CAP_EXEMPT_FPS` | FPS >= 58 **and** WebGL2 available | Classifier (cap exemption) |
 | `BATTERY_LOW_LEVEL` | level <= 0.20 and `charging === false` | Classifier (downgrade) |
@@ -109,7 +109,7 @@ Timings are measured from the moment the Analysis Screen appears (t = 0).
 | 5 | **WebGL check** | Signal Collector | Creates a detached canvas, requests `webgl2`, then `webgl`, then releases the context. Result: `"webgl2"`, `"webgl1"`, or `"none"`. If the check throws an exception, the result is `null` (missing), not `"none"`. Progress goes to 35%. | ~10 to 60 ms |
 | 6 | **FPS Benchmark** | FPS Benchmark | Runs a fixed synthetic workload (Section 4.3) and samples `requestAnimationFrame` for up to 2000 ms. Discards the first 250 ms. Stops early if the tab becomes hidden (`visibilitychange`) or the visitor presses Skip. Progress moves from 35% to 90% in proportion to elapsed time. Result: FPS value, or `null` with `benchmark.completed = false`. | t = ~60 to 2060 ms |
 | 7 | **Score** | Scoring Engine | Converts each available signal to points, excludes missing ones, rescales to 0 to 100, and returns the score plus a per-signal breakdown. Sets `estimated = true` if the benchmark did not complete or fewer than 3 of the 5 scored signals are available. Progress goes to 95%. | < 5 ms |
-| 8 | **Classify and apply caps** | Classifier | Maps score to class (HIGH >= 70, MEDIUM 40 to 69, BASIC < 40). Applies, in order (Section 4.6): (a) insufficient-data rule, (b) estimated-HIGH guard, (c) mobile/touch cap, (d) constraint downgrade (data saver, slow network, low battery). Records triggered rules in `appliedCaps`. Progress goes to 100%. | < 5 ms |
+| 8 | **Classify and apply caps** | Classifier | Maps score to class (HIGH >= 80, MEDIUM 60 to 79, BASIC <= 59). Applies, in order (Section 4.6): (a) insufficient-data rule, (b) estimated-HIGH guard, (c) mobile/touch cap, (d) constraint downgrade (data saver, slow network, low battery). Records triggered rules in `appliedCaps`. Progress goes to 100%. | < 5 ms |
 | 8a | **API sync (parallel, non-blocking)** | API Client | Sends `POST /api/device-profile` with the signals payload. 1500 ms timeout. Does not delay Step 9. Response handling is defined in Step 12. | Starts at Step 8 |
 | 9 | **Resolve final mode** | Mode Controller + Preference Store | Reads `sypher.override`. If it is `high`, `medium`, or `basic`, that value becomes the mode and `data-source="manual"`. If it is `auto`, missing, or unreadable, the detected class becomes the mode and `data-source="auto"`. Reduced motion does not change the mode; it only keeps `data-motion="reduced"`. | < 1 ms |
 | 10 | **Apply mode** | Mode Controller | Sets `data-mode`, `data-motion`, `data-source` on `<html>`. Applies the built-in default flags for the mode immediately, then requests `GET /api/mode-config?mode=<mode>` (cacheable). Loads `mode-medium.css` (MEDIUM and HIGH) and `mode-high.css` (HIGH) with `<link rel="stylesheet">` insertion; dynamically imports heavy modules only if the active flags enable them. Writes `sypher.profile` (score, class, timestamp) and `sypher.session`. Removes `data-adaptive-state`. | < 50 ms, assets stream afterwards |
@@ -171,7 +171,7 @@ Timings are measured from the moment the Analysis Screen appears (t = 0).
     |                                      <fps also missing?> --yes--> class = MEDIUM    |
     |                                                                    (insufficient data)
     v yes                                                                                 |
-[Class from score: >=70 HIGH | 40..69 MEDIUM | <40 BASIC]                                 |
+[Class from score: >=80 HIGH | 60..79 MEDIUM | <=59 BASIC]                                 |
     |                                                                                     |
     v                                                                                     |
 <fps missing AND class = HIGH AND score < 80?> --yes--> class = MEDIUM (estimatedHighGuard)
@@ -235,9 +235,9 @@ flowchart TD
     score --> enough{"At least 3 scored signals"}
     enough -->|"no and fps missing"| insufficient["MEDIUM, estimated"]
     enough -->|yes| classify{"Score band"}
-    classify -->|"70 or more"| high[HIGH]
-    classify -->|"40 to 69"| medium[MEDIUM]
-    classify -->|"under 40"| basic[BASIC]
+    classify -->|"80 or more"| high[HIGH]
+    classify -->|"60 to 79"| medium[MEDIUM]
+    classify -->|"59 or below"| basic[BASIC]
     high --> estGuard{"fps missing and score under 80"}
     estGuard -->|yes| capMedium
     estGuard -->|no| touchCap{"Coarse pointer and viewport under 1024"}
@@ -441,9 +441,9 @@ score        = round( earned / availableMax x 100 )
 
 | Class | Score |
 |---|---|
-| HIGH | >= 70 |
-| MEDIUM | 40 to 69 |
-| BASIC | < 40 |
+| HIGH | 80 to 100 |
+| MEDIUM | 60 to 79 |
+| BASIC | 0 to 59 |
 
 ### 4.6 Rules applied after the score band (in this exact order)
 
@@ -608,7 +608,7 @@ This table is the frontend's source of truth. Every row is controlled by a flag 
   },
   "scoring": {
     "weights": { "cpu": 25, "memory": 20, "screen": 10, "webgl": 15, "fps": 30 },
-    "thresholds": { "high": 70, "medium": 40, "estimatedHigh": 80 },
+    "thresholds": { "high": 80, "medium": 60, "estimatedHigh": 80 },
     "touchCap": { "maxViewportPx": 1023, "exemptFps": 58, "exemptWebgl": "webgl2" },
     "batteryLowLevel": 0.20
   },
@@ -1411,8 +1411,8 @@ One row per run. The same fields are saved by `POST /api/test-results`.
 
 | Test ID | Test device | Examples | Expected result | Also verify |
 |---|---|---|---|---|
-| DEV-01 | High-end computer | Gaming desktop, workstation, high-performance laptop | **HIGH PERFORMANCE MODE** (score >= 70, no caps) | Hero video plays muted, WebGL ambient background renders, page transitions run, dashboard shows all fields |
-| DEV-02 | Mid/low-end computer | Office desktop, older laptop | **MEDIUM or BASIC** per Section 4 (for example 4 threads, 4 GB, 1920 x 1080 at 1x, webgl2, 41 fps = 9 + 12 + 10 + 15 + 12 = score 58 = MEDIUM) | No video downloaded (check Network panel), gallery uses optimized images, scrolling smooth |
+| DEV-01 | High-end computer | Gaming desktop, workstation, high-performance laptop | **HIGH PERFORMANCE MODE** (score >= 80, no caps) | Hero video plays muted, WebGL ambient background renders, page transitions run, dashboard shows all fields |
+| DEV-02 | Mid/low-end computer | Office desktop, older laptop | **MEDIUM or BASIC** per Section 4 (for example 4 threads, 4 GB, 1920 x 1080 at 1x, webgl2, 41 fps = 9 + 12 + 10 + 15 + 12 = score 58 = BASIC) | No video downloaded (check Network panel), gallery uses optimized images, scrolling smooth |
 | DEV-03 | Mobile device | Android phone, iPhone, tablet | **MEDIUM or BASIC** per capability; HIGH only if benchmark-verified (Example D) | Dashboard opens as a bottom sheet, touch targets >= 44 px, no hover-only content, chip visible |
 | DEV-04 (recommended) | Second mobile device of the other platform | iPhone if DEV-03 was Android, or the reverse | Per capability | Safari: memory "Not available" and score rescaled |
 | DEV-05 (recommended) | Tablet | Modern tablet | MEDIUM (touch cap) unless benchmark-verified | Tablet layout (600 to 1023 px) |
@@ -1492,7 +1492,7 @@ We designed an Adaptive Web Experience System. The site ships a fast BASIC basel
 
 ### 12.3 Device classification logic (draft)
 
-Each device is placed in exactly one class from its score: HIGH (70 or more), MEDIUM (40 to 69), or BASIC (under 40). Four rules then refine the result, in order: (1) if fewer than three scored signals are available and the smoothness test did not run, the device is classed MEDIUM; (2) without a smoothness test, HIGH needs a score of at least 80; (3) a touch device with a viewport under 1024 pixels is capped at MEDIUM unless it reaches at least 58 frames per second with WebGL 2; (4) Data Saver, a 2G connection, or a battery at or below 20% that is not charging lowers the class by one level (never more than one). If detection fails completely, the site uses MEDIUM and tells the visitor. A saved manual choice replaces the detected class, and reduced motion turns off animation regardless of class. The system never identifies a specific processor or graphics model.
+Each device is placed in exactly one class from its score: HIGH (80 or more), MEDIUM (60 to 79), or BASIC (59 or below). Four rules then refine the result, in order: (1) if fewer than three scored signals are available and the smoothness test did not run, the device is classed MEDIUM; (2) without a smoothness test, HIGH needs a score of at least 80; (3) a touch device with a viewport under 1024 pixels is capped at MEDIUM unless it reaches at least 58 frames per second with WebGL 2; (4) Data Saver, a 2G connection, or a battery at or below 20% that is not charging lowers the class by one level (never more than one). If detection fails completely, the site uses MEDIUM and tells the visitor. A saved manual choice replaces the detected class, and reduced motion turns off animation regardless of class. The system never identifies a specific processor or graphics model.
 
 ### 12.4 Performance scoring methodology (draft)
 

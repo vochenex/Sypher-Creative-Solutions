@@ -1,0 +1,30 @@
+.multimedia-intro { padding-block: 48px 36px; }
+.multimedia-intro h1 { font-size: clamp(42px, 6vw, 80px); font-weight: 500; letter-spacing: -.06em; margin: 18px 0 24px; }
+.multimedia-intro__bottom { display: flex; align-items: end; justify-content: space-between; gap: 32px; }
+.multimedia-intro__bottom p { max-width: 650px; color: var(--muted); margin: 0; }
+.multimedia-index { display: flex; flex-wrap: wrap; gap: 8px; }
+.multimedia-index a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; text-decoration: none; }
+.multimedia-index a:hover { color: var(--accent); border-color: var(--accent); }
+.multimedia-artwork { align-self: center; margin: 0; min-width: 0; }
+.multimedia-artwork > a { display: block; }
+.multimedia-artwork img { width: 100%; height: auto; display: block; border-radius: 14px; }
+.multimedia-artwork figcaption { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; font-size: 10px; color: #59534d; }
+.multimedia-artwork figcaption a { color: #101a36; font-weight: 600; }
+.multimedia-case .application-case__foot { width: 100%; }
+.multimedia-case .application-case__foot p { margin-bottom: 8px; }
+.project--multimedia .project__img { aspect-ratio: auto !important; height: auto; object-fit: contain; filter: none; }
+.project--multimedia .project__frame { background: #16191d; }
+#previews-multimedia .practice-preview__frame { background: #f6f0f9; color: #3d304b; border-color: #c6b7d2; }
+#previews-multimedia .practice-preview img { object-fit: contain; }
+.hero-card--multimedia .hero-card__link { background: #17191d; }
+.hero-card--multimedia img { object-fit: contain; }
+.hero-card__brand--stride { font-style: italic; font-weight: 800; letter-spacing: -.04em; }
+@media (max-width: 900px) {
+  .multimedia-intro__bottom { flex-direction: column; align-items: flex-start; gap: 24px; }
+}
+@media (max-width: 650px) {
+  .multimedia-intro { padding-top: 36px; }
+  .multimedia-case .application-case__foot { display: block; }
+  .multimedia-artwork figcaption { flex-direction: column; gap: 6px; }
+  .multimedia-artwork figcaption a { display: inline-flex; align-items: center; min-height: 36px; }
+}

@@ -72,6 +72,17 @@ describe('inquiry route validation', () => {
     assert.equal(stored[0].email, 'ada@example.com');
   });
 
+  it('rejects inquiries for the removed Digital Marketing service', async () => {
+    await assert.rejects(
+      () => inquiries.create({
+        name: 'Ada', email: 'ada@example.com', message: 'A service inquiry.',
+        service: 'Digital Marketing', clientRequestId: 'req_removed_service'
+      }),
+      (err) => err instanceof HttpError && err.status === 400 && err.field === 'service'
+    );
+    assert.equal(fs.existsSync(inquiries.DATA_FILE), false);
+  });
+
   it('rejects missing required fields', async () => {
     await assert.rejects(
       () => inquiries.create({ name: 'A', email: 'bad', message: '' }),
@@ -210,7 +221,7 @@ describe('inquiry HTTP API', () => {
     const res = await request(port, { path: '/' });
     assert.equal(res.status, 200);
     assert.match(res.body.toString('utf8'), /contact-form/);
-    assert.match(res.body.toString('utf8'), /Privacy \/ demo note/);
+    assert.match(res.body.toString('utf8'), /Review the draft and press Send there/);
     assert.doesNotMatch(res.body.toString('utf8'), /Your message is on its way/);
   });
 });

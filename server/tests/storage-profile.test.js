@@ -11,15 +11,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function loadStorage() {
-  const store = new Map();
+function loadStorage(store = new Map()) {
+  const sessionStore = new Map();
   const localStorage = {
     getItem(k) { return store.has(k) ? store.get(k) : null; },
     setItem(k, v) { store.set(k, String(v)); },
     removeItem(k) { store.delete(k); }
   };
   const sandbox = {
-    window: { localStorage, sessionStorage: localStorage },
+    window: { localStorage, sessionStorage: {
+      getItem: k => sessionStore.get(k) || null,
+      setItem: (k, v) => sessionStore.set(k, String(v)),
+      removeItem: k => sessionStore.delete(k)
+    } },
     console
   };
   sandbox.window.Sypher = { config: { configVersion: '2026-10-18.4' } };
@@ -38,7 +42,7 @@ describe('cached profile validation (F6)', () => {
 
   it('accepts a well-formed profile', () => {
     const profile = {
-      score: 72,
+      score: 85,
       class: 'HIGH',
       timestamp: Date.now(),
       breakdown: { cpu: 20 },
@@ -48,7 +52,7 @@ describe('cached profile validation (F6)', () => {
     assert.equal(storage.setProfile(profile), true);
     const got = storage.getProfile(24);
     assert.equal(got.class, 'HIGH');
-    assert.equal(got.score, 72);
+    assert.equal(got.score, 85);
   });
 
   it('rejects timestamp-only corruption', () => {
@@ -102,5 +106,17 @@ describe('cached profile validation (F6)', () => {
     const { storage: s2, store } = loadStorage();
     store.set('sypher.override', 'ultra');
     assert.equal(s2.getOverride(), 'auto');
+  });
+
+  it('keeps the saved result and override across new browser sessions without expiring', () => {
+    const { storage: first, store } = loadStorage();
+    first.setProfile({ score: 85, class: 'HIGH', timestamp: Date.now() - 90 * 864e5 });
+    first.setOverride('medium');
+    first.markSession();
+    const next = loadStorage(store).storage;
+    assert.equal(next.hasSession(), false);
+    assert.equal(next.getProfile(0).class, 'HIGH');
+    assert.equal(next.getProfile().class, 'HIGH');
+    assert.equal(next.getOverride(), 'medium');
   });
 });

@@ -1,4 +1,4 @@
-/* Nonblocking analysis status and result banner. */
+/* Centered analysis status and result banner. The status never blocks the page. */
 (function (S) {
   'use strict';
 
@@ -12,6 +12,15 @@
   var titleEl = document.getElementById('analysis-title');
   var open = false;
   var maxLifeTimer = null;
+  var finishTimer = null, fadeTimer = null;
+  var analysisStartedAt = 0, closing = false, doneMessage = '', finishCallbacks = [];
+  var timing = S.config.timing;
+
+  function clearExit() {
+    clearTimeout(finishTimer);
+    clearTimeout(fadeTimer);
+    finishTimer = fadeTimer = null;
+  }
 
   function clearMaxLife() {
     if (maxLifeTimer) {
@@ -23,49 +32,63 @@
   S.ui.analysis = {
     show: function () {
       open = true;
+      closing = false;
+      analysisStartedAt = performance.now();
+      finishCallbacks = [];
+      doneMessage = 'Your experience is ready';
       clearMaxLife();
+      clearExit();
       if (!el) return null;
       el.hidden = false;
       el.classList.add('is-open');
-      el.classList.remove('is-done');
-      if (titleEl) titleEl.textContent = 'Analyzing Device Performance\u2026';
-      if (stepEl) stepEl.textContent = 'Checking your device quietly in the background.';
+      el.classList.remove('is-done', 'is-leaving');
+      if (titleEl) titleEl.textContent = 'Finding your best experience';
+      if (stepEl) stepEl.textContent = 'Checking performance for a smoother visit.';
       // Fail safe: never leave the status stuck if init aborts unexpectedly.
-      var limit = (S.config && S.config.timing && S.config.timing.analysisHardLimitMs) || 2500;
+      var limit = timing.analysisHardLimitMs || 1800;
       maxLifeTimer = setTimeout(function () {
         if (!open) return;
-        if (titleEl) titleEl.textContent = 'Continuing with a safe baseline';
-        if (stepEl) stepEl.textContent = '';
+        doneMessage = 'Continuing with a safe baseline';
         S.ui.analysis.hide();
-      }, limit + 2000);
+      }, limit + 400);
       // Off-DOM canvas keeps the page usable while the benchmark runs.
       return document.createElement('canvas');
     },
     hide: function (done) {
       clearMaxLife();
-      if (el) {
-        el.classList.remove('is-open');
+      // Cached boots have no loader and must be ready immediately.
+      if (!open || !el) { open = false; if (done) done(); return; }
+      if (done) finishCallbacks.push(done);
+      if (closing) return;
+      closing = true;
+      var remaining = Math.max(0, (timing.analysisMinVisibleMs || 900) - (performance.now() - analysisStartedAt));
+      finishTimer = setTimeout(function () {
         el.classList.add('is-done');
-        // Keep a brief polite confirmation in the live region, then clear.
-        setTimeout(function () {
-          if (!open) return;
-          open = false;
-          el.hidden = true;
-          el.classList.remove('is-done');
-        }, 1200);
-      } else {
-        open = false;
-      }
-      if (done) done();
+        if (titleEl) titleEl.textContent = doneMessage;
+        if (stepEl) stepEl.textContent = 'All set. Enjoy exploring.';
+        finishTimer = setTimeout(function () {
+          el.classList.remove('is-open');
+          el.classList.add('is-leaving');
+          fadeTimer = setTimeout(function () {
+            el.hidden = true;
+            el.classList.remove('is-done', 'is-leaving');
+            closing = false;
+            open = false;
+            finishTimer = fadeTimer = null;
+            var callbacks = finishCallbacks;
+            finishCallbacks = [];
+            callbacks.forEach(function (callback) { callback(); });
+          }, timing.analysisFadeMs || 220);
+        }, timing.analysisDoneMs || 320);
+      }, remaining);
     },
     setDoneMessage: function (text) {
-      if (titleEl) titleEl.textContent = text || 'Experience ready';
-      if (stepEl) stepEl.textContent = '';
+      doneMessage = text || 'Your experience is ready';
     }
   };
 
   document.addEventListener('adaptive:progress', function (e) {
-    if (!open || !stepEl) return;
+    if (!open || closing || !stepEl) return;
     var labels = {
       signals: 'Reading available device signals',
       webgl: 'Checking graphics support',
@@ -145,10 +168,15 @@
   function render(profile, mode, source) {
     if (!banner) return;
     var cls = profile['class'];
+    var reduced = (S.state && S.state.motion === 'reduced') ||
+      document.documentElement.getAttribute('data-motion') === 'reduced';
     var lines = [];
     if (profile.source === 'fallback') lines.push(C.resultFallback);
+    else if (reduced && C.resultBodyReduced && C.resultBodyReduced[cls]) lines.push(C.resultBodyReduced[cls]);
     else lines.push(C.resultBody[cls]);
-    if (profile.benchmarkVerified && cls === 'HIGH') lines.push(C.resultVerified);
+    if (profile.benchmarkVerified && cls === 'HIGH') {
+      lines.push(reduced && C.resultVerifiedReduced ? C.resultVerifiedReduced : C.resultVerified);
+    }
     if (profile.estimated && profile.source !== 'fallback') lines.push(C.resultEstimated);
     if (source === 'manual') lines.push(C.resultManual(mode));
     var why = whyLine(profile);
@@ -169,8 +197,17 @@
     if (banner && !banner.hidden && e.detail) render(e.detail, S.state.mode, S.state.source);
   });
 
+  // Refresh copy when motion flips (e.g. "Show animations this visit") while the banner is open.
+  document.addEventListener('adaptive:modechange', function () {
+    if (banner && !banner.hidden && S.state && S.state.profile) {
+      render(S.state.profile, S.state.mode, S.state.source);
+    }
+  });
+
   S.ui.banner = {
     show: function (profile, mode, source) {
+      // Detection stays automatic; diagnostics are available in the debug view.
+      if (!S.debug || !S.debug.enabled) return;
       render(profile, mode, source);
       if (banner) {
         banner.hidden = false;

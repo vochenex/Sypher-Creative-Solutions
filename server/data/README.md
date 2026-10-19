@@ -6,7 +6,9 @@ This directory holds **local demonstration data** written by the Node API. It is
 
 ## `inquiries.json` (runtime, not tracked)
 
-Contact form submissions are stored in `inquiries.json` when no email provider is configured.
+The legacy demonstration `POST /api/inquiries` route stores requests in
+`inquiries.json`. The public contact form uses an email draft addressed to
+`syphersolutions@gmail.com` and does not call this route or store form data here.
 
 | Topic | Policy |
 |---|---|

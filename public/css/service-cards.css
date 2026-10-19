@@ -1,0 +1,81 @@
+/* Flat, static service cards are the baseline. High adds art direction and motion. */
+.practice__cards { align-items: stretch; }
+.practice-card { display: flex; }
+.practice-card__trigger { position: relative; height: 100%; padding: 26px; border-color: var(--card-line); border-radius: 16px; box-shadow: none; transition: none; }
+.practice-card__top { font-size: 10px; letter-spacing: .11em; }
+.practice-card__top > .i { width: 28px; height: 28px; padding: 5px; border: 1px solid var(--card-line); border-radius: 50%; }
+.practice-card__visual { position: relative; display: grid; place-items: center; width: 100%; height: 160px; margin: 24px 0; }
+.practice-card__art { position: relative; display: block; width: 100%; max-width: 280px; }
+.practice-card__art img { display: block; width: 100%; height: 150px; object-fit: contain; border-radius: 4px; }
+.practice-card__visual--branding .practice-card__art { max-width: 150px; }
+.practice-card__title { font-size: clamp(22px, 2.1vw, 30px); line-height: 1.15; min-height: 0; }
+.practice-card__description { min-height: 3.4em; margin-top: 12px; font-size: 13px; line-height: 1.7; max-width: 32ch; }
+.practice-card__foot { margin-top: 24px; padding-top: 18px; font-size: 10px; letter-spacing: .08em; }
+.practice-card__foot > span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 22px; }
+.practice-card.is-active .practice-card__trigger { transform: none; box-shadow: inset 0 0 0 2px var(--card-ink); }
+.practice-card__specimen, .practice-card__swatches, .practice-card__screen-back, .practice-card__browser-bar, .practice-card__code, .practice-card__print-back, .practice-card__edition { display: none; }
+
+/* Galleries sit in the document flow in every mode; no reserved empty rows. */
+.practice__stage.is-ready { padding-block: 0; margin-top: 36px; }
+.practice__previews { display: none; position: static; inset: auto; margin-top: 22px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; transition: none; }
+.practice__previews.is-active { display: grid; }
+.practice-preview, .practice__previews.is-active .practice-preview { position: static; left: auto; top: auto; width: auto; height: 190px; opacity: 1; transform: none; transition: none; }
+.practice-preview__link span { padding: 7px 3px 3px; }
+
+html[data-mode="high"] .practice-card { --card-paper: #e0e9d4; --card-ink: #202e1c; --card-line: #28382429; }
+html[data-mode="high"] .practice-card[data-practice="web"] { --card-paper: #e8e5df; --card-ink: #2c302c; --card-line: #30382c29; }
+html[data-mode="high"] .practice-card[data-practice="multimedia"] { --card-paper: #e1d9e8; --card-ink: #352b3d; --card-line: #382c4429; }
+html[data-mode="high"] .practice-card__trigger { border-radius: 24px; padding: 28px; background: linear-gradient(145deg, #ffffff35, transparent 65%), var(--card-paper); box-shadow: inset 0 1px 0 #ffffff90, 0 12px 28px #00000014; }
+html[data-mode="high"] .practice-card__visual { height: 228px; margin: 24px 0 30px; isolation: isolate; }
+html[data-mode="high"] .practice-card__visual::before { content: ''; position: absolute; inset: 12px 0; border: 1px solid var(--card-line); border-radius: 50%; z-index: -1; }
+html[data-mode="high"] .practice-card__title { font-size: clamp(24px, 2.3vw, 34px); letter-spacing: -.045em; }
+html[data-mode="high"] .practice-card__art { z-index: 2; padding: 12px; background: #fbf8ef; border: 1px solid #ffffffa0; border-radius: 8px; box-shadow: 0 16px 24px #16201026; }
+html[data-mode="high"] .practice-card__visual--branding .practice-card__art { width: 54%; max-width: 180px; transform: translate(18px, -6px) rotate(8deg); }
+html[data-mode="high"] .practice-card__visual--branding img { height: 150px; }
+html[data-mode="high"] .practice-card__specimen { display: flex; position: absolute; left: 3%; top: 28px; width: 50%; height: 166px; padding: 18px; flex-direction: column; justify-content: space-between; background: #283c2e; color: #e5efcf; border-radius: 6px; font: 68px/1 Georgia, serif; transform: rotate(-12deg); box-shadow: 0 12px 20px #16201020; }
+html[data-mode="high"] .practice-card__specimen span { font: 7px/1.4 var(--font-body); letter-spacing: .13em; }
+html[data-mode="high"] .practice-card__swatches { display: flex; position: absolute; z-index: 3; right: 5%; bottom: 10px; padding: 6px; gap: 5px; border-radius: 30px; background: #fbf8ef; box-shadow: 0 6px 16px #16201020; transform: rotate(-7deg); }
+html[data-mode="high"] .practice-card__swatches i { width: 28px; height: 28px; border-radius: 50%; background: #283c2e; }
+html[data-mode="high"] .practice-card__swatches i:nth-child(2) { background: #a8bb89; }
+html[data-mode="high"] .practice-card__swatches i:nth-child(3) { background: #dfdacd; }
+html[data-mode="high"] .practice-card__visual--web .practice-card__art { max-width: 320px; padding: 0 0 8px; overflow: hidden; transform: rotate(-6deg); }
+html[data-mode="high"] .practice-card__visual--web img { height: auto; border-radius: 0; }
+html[data-mode="high"] .practice-card__browser-bar { display: flex; align-items: center; gap: 4px; padding: 10px; border-bottom: 1px solid #ded7cb; }
+html[data-mode="high"] .practice-card__browser-bar i { width: 5px; height: 5px; border-radius: 50%; background: #b7b6a9; }
+html[data-mode="high"] .practice-card__browser-bar > span { margin-left: auto; font-size: 7px; letter-spacing: .05em; color: #67675b; }
+html[data-mode="high"] .practice-card__screen-back { display: block; position: absolute; inset: 35px 12px; background: #c5c9b6; border: 1px solid #ffffff80; border-radius: 8px; transform: rotate(8deg); }
+html[data-mode="high"] .practice-card__code { display: grid; place-items: center; position: absolute; right: 2%; bottom: 2px; z-index: 3; width: 64px; height: 56px; border-radius: 12px; background: #28352b; color: #dfebc9; font: 24px/1 monospace; box-shadow: 0 8px 16px #16201020; transform: rotate(6deg); }
+html[data-mode="high"] .practice-card__visual--multimedia .practice-card__art { width: 82%; max-width: 270px; padding: 9px; transform: translate(-10px, 14px) rotate(-8deg); }
+html[data-mode="high"] .practice-card__visual--multimedia img { height: auto; }
+html[data-mode="high"] .practice-card__print-back { display: flex; position: absolute; right: 6%; top: 4px; width: 58%; height: 184px; padding: 16px; flex-direction: column; justify-content: space-between; background: #392d42; color: #ece3f1; border-radius: 3px; font-size: clamp(20px, 2.2vw, 32px); font-weight: 700; font-style: italic; letter-spacing: -.05em; transform: rotate(10deg); box-shadow: 0 12px 20px #24102d26; }
+html[data-mode="high"] .practice-card__print-back span { font-size: 7px; letter-spacing: .16em; font-weight: 400; font-style: normal; }
+html[data-mode="high"] .practice-card__edition { display: block; position: absolute; right: 0; bottom: 0; z-index: 3; padding: 10px 12px; background: #f7f2e7; border-radius: 3px; font-size: 11px; letter-spacing: .12em; transform: rotate(5deg); box-shadow: 0 6px 14px #24102d20; }
+html[data-mode="high"] .practice-card__foot > span { background: var(--card-ink); color: var(--card-paper); }
+
+/* Only High with full motion animates. Nothing runs continuously. */
+html[data-mode="high"][data-motion="full"] .practice-card__trigger { transition: transform 280ms ease, box-shadow 280ms ease; }
+html[data-mode="high"][data-motion="full"] .practice-card__art { transition: transform 450ms cubic-bezier(.2,.7,.2,1); }
+html[data-mode="high"][data-motion="full"] .practice__previews.is-active .practice-preview { animation: service-preview-in 280ms ease both; animation-delay: var(--delay); }
+@keyframes service-preview-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  html[data-mode="high"][data-motion="full"] .practice-card__trigger:hover { transform: translateY(-6px); box-shadow: inset 0 1px 0 #ffffff90, 0 22px 40px #00000026; }
+  html[data-mode="high"][data-motion="full"] .practice-card__trigger:hover .practice-card__art { transform: translateY(-8px) rotate(0); }
+}
+@media (max-width: 1000px) and (min-width: 600px) {
+  .practice-card__trigger, html[data-mode="high"] .practice-card__trigger { padding: 20px; }
+  .practice-card__title, html[data-mode="high"] .practice-card__title { min-height: 2.3em; font-size: 23px; }
+  html[data-mode="high"] .practice-card__visual { height: 200px; }
+  .practice-card__description { min-height: 5.1em; }
+  .practice-card__foot { font-size: 8px; }
+}
+@media (max-width: 599px) {
+  .practice-card__trigger, html[data-mode="high"] .practice-card__trigger { padding: 24px; }
+  .practice-card__title, html[data-mode="high"] .practice-card__title { font-size: 29px; }
+  .practice__previews { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .practice-preview, .practice__previews.is-active .practice-preview { height: 164px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-mode="high"] .practice-card__trigger, html[data-mode="high"] .practice-card__art { transition: none !important; }
+  html[data-mode="high"] .practice-card__trigger:hover { transform: none !important; }
+  html[data-mode="high"] .practice__previews.is-active .practice-preview { animation: none; }
+}

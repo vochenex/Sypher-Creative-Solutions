@@ -1,0 +1,93 @@
+/* Supplied branding artwork, presented on a warm paper canvas. */
+.logo-board { --board-ink: #10213a; display: grid; grid-template-columns: .85fr 2.15fr; background: #fcf7ec; color: var(--board-ink); border-block: 16px solid #10213a; padding: clamp(22px, 4vw, 56px); gap: 30px; }
+.logo-board__intro { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
+.logo-board__eyebrow { font-size: 11px; margin-bottom: auto; padding-bottom: 30px; }
+.logo-board__intro h2, .logo-board__intro strong { font-family: "Archivo", sans-serif; font-size: clamp(28px, 4vw, 54px); font-weight: 900; letter-spacing: -.065em; line-height: 1; margin: 0 0 18px; }
+.logo-board__intro p { font-size: 13px; line-height: 1.6; max-width: 205px; }
+.logo-board__edition { font-size: 9px; letter-spacing: .12em; margin-top: auto; padding-top: 35px; }
+.logo-board__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; }
+.logo-board__cell { display: grid; place-items: center; min-width: 0; aspect-ratio: 1.25; padding: 14px; border-right: 1px dashed #10213a26; border-bottom: 1px dashed #10213a26; }
+.logo-board__cell:nth-child(3n) { border-right: 0; }
+.logo-board__cell:nth-last-child(-n+3) { border-bottom: 0; }
+.logo-board__cell img { width: 100%; height: 100%; max-height: 145px; object-fit: contain; }
+.logo-board a.logo-board__cell:hover, .logo-board a.logo-board__cell:focus-visible { background: #eee6d6; outline: 2px solid #10213a; outline-offset: -2px; box-shadow: none; border-radius: 0; }
+.project--logofolio { column-span: all; display: block; }
+.project--logofolio .project__frame { border-radius: 12px; }
+.project--logofolio .project__meta { grid-template-columns: 1fr auto; }
+.project--logofolio .project__title { grid-row: 2; }
+.project--logofolio .project__result { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+.project--identity .project__img { object-fit: contain; aspect-ratio: auto !important; filter: none; }
+.branding-service { display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid var(--line); border-radius: 18px; padding: 26px 30px; margin-top: 28px; }
+.branding-service h3 { margin-bottom: 8px; }
+.branding-service p { color: var(--muted); font-size: 14px; margin: 0; max-width: 650px; }
+.branding-service a { flex: none; color: var(--accent); font-size: 14px; font-weight: 600; }
+.branding-service__links { display: flex; flex-direction: column; gap: 10px; flex: none; }
+.branding-collections { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-top: 24px; font-size: 12px; }
+.branding-collections a { min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; color: var(--muted); border-bottom: 1px solid transparent; }
+.branding-collections a[aria-current="page"], .branding-collections a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.project--application .project__img { aspect-ratio: 1 !important; object-fit: contain; filter: none; }
+.identity-overview-link { display: inline-block; margin-top: 6px; color: var(--accent); font-size: 13px; }
+.practice-card__stack img { width: 100%; height: 100px; max-height: 100%; object-fit: contain; margin: auto; }
+#previews-branding .practice-preview__frame { background: #fcf7ec; color: #10213a; border-color: #d3cabb; }
+#previews-branding .practice-preview img { object-fit: contain; }
+.practice-preview__link { display: flex; flex-direction: column; height: 100%; text-decoration: none; color: inherit; }
+.practice-preview__link span { font-size: 10px; margin-top: auto; }
+.practice__previews.is-active .practice-preview__link { pointer-events: auto; }
+.practice__previews:not(.is-active) a { visibility: hidden; }
+.practice-preview__link:focus-visible { outline: 3px solid #10213a; outline-offset: 2px; }
+/* Standalone collection detail page shares the studio's type and navigation. */
+.branding-page { --font-body: "Archivo", system-ui, sans-serif; --font-display: var(--font-body); }
+.branding-nav { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-block: 28px; border-bottom: 1px solid var(--line); }
+.branding-nav__home { display: flex; align-items: center; gap: 12px; text-decoration: none; font-size: 20px; font-weight: 700; letter-spacing: -.05em; }
+.branding-nav__home img { width: 36px; height: 36px; object-fit: contain; }
+.branding-nav__links { display: flex; gap: 28px; font-size: 13px; }
+.branding-nav__links a { text-decoration: none; }
+.branding-nav__links a:hover { color: var(--accent); }
+.branding-hero { padding-block: 62px 36px; }
+.branding-kicker { color: var(--accent); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
+.branding-hero h1 { font-size: clamp(48px, 7vw, 94px); letter-spacing: -.065em; font-weight: 500; margin-block: 20px; }
+.branding-hero__bottom { display: flex; align-items: end; justify-content: space-between; gap: 32px; }
+.branding-hero__bottom p { max-width: 640px; color: var(--muted); margin: 0; }
+.branding-hero__bottom > span { font-size: 11px; color: var(--muted); flex: none; }
+.branding-section { padding-block: 80px; scroll-margin-top: 30px; }
+.branding-section__head { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 36px; border-top: 1px solid var(--line); padding-top: 32px; }
+.branding-section__head h2 { font-size: clamp(28px, 4vw, 48px); font-weight: 500; letter-spacing: -.045em; }
+.branding-section__head p { color: var(--muted); max-width: 530px; }
+.brand-notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.brand-note { padding-top: 20px; border-top: 1px solid var(--line); scroll-margin-top: 35px; }
+.brand-note__number { color: var(--accent); font-size: 10px; letter-spacing: .12em; }
+.brand-note h3 { font-size: 23px; margin-block: 14px 10px; font-weight: 500; }
+.brand-note p { font-size: 14px; color: var(--muted); }
+.brand-note a { color: var(--accent); font-size: 12px; }
+.identity-boards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.identity-board { margin: 0; scroll-margin-top: 35px; }
+.identity-board img { width: 100%; height: auto; border-radius: 8px; background: #fcf7ec; }
+.identity-board figcaption { padding-top: 22px; }
+.identity-board h3 { font-size: 23px; font-weight: 500; }
+.identity-board p { color: var(--muted); font-size: 13px; }
+.identity-board figcaption a { color: var(--accent); font-size: 12px; }
+.branding-cta { border-top: 1px solid var(--line); padding-block: 48px; display: flex; justify-content: space-between; align-items: center; gap: 30px; }
+.branding-cta h2 { font-weight: 500; font-size: clamp(28px, 4vw, 48px); letter-spacing: -.04em; }
+.branding-footer { padding-block: 24px; color: var(--muted); border-top: 1px solid var(--line); font-size: 11px; display: flex; justify-content: space-between; gap: 20px; }
+@media (max-width: 700px) {
+  .logo-board { grid-template-columns: 1fr; gap: 22px; padding: 24px 16px; border-width: 9px; }
+  .logo-board__intro { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+  .logo-board__eyebrow { grid-column: 1 / -1; padding: 0; margin: 0; }
+  .logo-board__intro h2, .logo-board__intro strong { font-size: 34px; margin: 0; }
+  .logo-board__intro p { font-size: 11px; margin: 0; }
+  .logo-board__edition { grid-column: 1 / -1; padding-top: 0; font-size: 8px; }
+  .logo-board__cell { aspect-ratio: 1; padding: 10px; }
+  .project--logofolio .project__meta { display: grid; grid-template-columns: 1fr; }
+  .project--logofolio .project__result { grid-column: auto; grid-row: auto; }
+  .branding-service, .branding-hero__bottom, .branding-cta { flex-direction: column; align-items: flex-start; }
+  .branding-service { padding: 24px; }
+  .branding-nav { align-items: flex-start; }
+  .branding-nav__links { gap: 14px; flex-wrap: wrap; justify-content: flex-end; font-size: 12px; }
+  .branding-nav__home span { display: none; }
+  .branding-hero { padding-top: 40px; }
+  .branding-section { padding-block: 48px; }
+  .branding-section__head { grid-template-columns: 1fr; gap: 12px; }
+  .brand-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .identity-boards { grid-template-columns: 1fr; gap: 48px; }
+}
+@media (max-width: 380px) { .brand-notes { grid-template-columns: 1fr; } }

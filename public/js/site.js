@@ -1,4 +1,4 @@
-/* Site Sections: navigation, reveals, portfolio filter, testimonials, video, hero pause, contact form.
+/* Site Sections: navigation, reveals, portfolio filter, testimonials, hero pause.
    Every behavior is driven by the active mode flags delivered with adaptive:ready / adaptive:modechange. */
 (function (S) {
   'use strict';
@@ -10,6 +10,8 @@
   /* ---------- Mobile menu ---------- */
   var menuBtn = $('menu-btn'), nav = $('primary-nav'), menuLabel = $('menu-btn-label');
   function setMenu(open) {
+    root.classList.toggle('menu-open', open);
+    if (open) $('site-header').classList.remove('is-tucked');
     nav.classList.toggle('is-open', open);
     menuBtn.setAttribute('aria-expanded', String(open));
     menuLabel.textContent = open ? 'Close menu' : 'Open menu';
@@ -67,12 +69,14 @@
   /* ---------- Reveals ---------- */
   var reveals = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
   var observer = null;
+  var revealed = new WeakSet();
   reveals.forEach(function (el) {
     var siblings = Array.prototype.slice.call(el.parentNode.children).filter(function (n) { return n.classList.contains('reveal'); });
     el.style.setProperty('--stagger', Math.min(siblings.indexOf(el), 6));
   });
 
   function finishReveal(el) {
+    revealed.add(el);
     el.classList.remove('is-pending');
     el.classList.add('is-revealed');
     setTimeout(function () {
@@ -85,18 +89,22 @@
     if (observer) { observer.disconnect(); observer = null; }
     var animate = flags.scrollAnimations !== 'none' && flags.dynamicSections !== 'static' && 'IntersectionObserver' in window;
     if (!animate) {
-      reveals.forEach(function (el) { el.classList.remove('is-pending', 'is-revealed'); el.classList.add('is-done'); });
+      // Basic must not mark unseen sections as already animated. Otherwise a later
+      // High/Medium selection silently loses all of its scroll entrances.
+      reveals.forEach(function (el) { el.classList.remove('is-pending', 'is-revealed'); });
       return;
     }
     observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         if (en.isIntersecting) { observer.unobserve(en.target); finishReveal(en.target); }
       });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    // Even a fast jump that lands on only the edge of a tall card must reveal it.
+    }, { rootMargin: '0px', threshold: 0 });
     var vh = window.innerHeight;
     reveals.forEach(function (el) {
-      if (el.classList.contains('is-done')) return;
-      if (el.getBoundingClientRect().top < vh * 0.92) { el.classList.add('is-done'); return; }
+      if (revealed.has(el)) return;
+      if (el.getBoundingClientRect().top < vh * 0.92 && el.getBoundingClientRect().height > 0) { el.classList.remove('is-pending'); el.classList.add('is-done'); return; }
+      el.classList.remove('is-done');
       el.classList.add('is-pending');
       observer.observe(el);
     });
@@ -106,7 +114,7 @@
   var filters = Array.prototype.slice.call(document.querySelectorAll('[data-filter]'));
   var projects = Array.prototype.slice.call(document.querySelectorAll('.project'));
   var filterStatus = $('filter-status');
-  var names = { all: '', branding: 'branding ', web: 'web ', multimedia: 'multimedia ', marketing: 'marketing ' };
+  var names = { all: '', branding: 'branding ', web: 'web ', multimedia: 'multimedia ' };
 
   function applyFilter(cat, announce) {
     var count = 0;
@@ -204,95 +212,9 @@
     restartAuto();
   }
 
-  /* ---------- Showreel ----------
-     HIGH (inview-muted): a muted loop starts once the frame is half on screen; sound and controls
-     start only from a Play click. MEDIUM and BASIC load the file on click. Reduced motion never previews. */
-  var videoBlock = $('video-block'), playBtn = $('video-play'), video = $('showreel-video');
-  var poster = videoBlock.querySelector('.video-block__poster');
-  var missing = videoBlock.querySelector('.video-block__missing');
-  var progressArc = videoBlock.querySelector('.play-progress__arc');
-  var reelPlay = $('reel-play');
-  var videoObserver = null;
-  var engaged = false;
-
-  video.addEventListener('error', function () {
-    missing.hidden = false;
-    video.hidden = true;
-    playBtn.hidden = true;
-    videoBlock.classList.remove('is-previewing', 'is-playing');
-  });
-  video.addEventListener('timeupdate', function () {
-    if (!progressArc || !video.duration) return;
-    progressArc.style.strokeDashoffset = String(1 - video.currentTime / video.duration);
-  });
-
-  function playFull() {
-    engaged = true;
-    if (videoObserver) { videoObserver.disconnect(); videoObserver = null; }
-    videoBlock.classList.remove('is-previewing', 'is-inview');
-    videoBlock.classList.add('is-playing');
-    poster.hidden = true;
-    playBtn.hidden = true;
-    video.hidden = false;
-    video.loop = false;
-    video.muted = false;
-    video.controls = true;
-    video.preload = 'auto';
-    try { video.currentTime = 0; } catch (e) { /* play() still starts at the beginning if seek fails before metadata */ }
-    var pr = video.play();
-    if (pr && pr.catch) pr.catch(function () {});
-    video.focus();
-  }
-  playBtn.addEventListener('click', playFull);
-  reelPlay.addEventListener('click', function () {
-    var top = videoBlock.getBoundingClientRect().top + window.scrollY - 90;
-    window.scrollTo({ top: Math.max(0, top), behavior: root.getAttribute('data-motion') === 'full' ? 'smooth' : 'auto' });
-    playFull();
-  });
-
-  function previewOn() {
-    if (engaged) return;
-    video.muted = true;
-    video.loop = true;
-    video.controls = false;
-    video.preload = 'auto';
-    var pr = video.play();
-    if (pr && pr.then) pr.then(function () { if (!engaged) videoBlock.classList.add('is-previewing'); }, function () {});
-  }
-  function previewOff() {
-    if (engaged) return;
-    video.pause();
-    videoBlock.classList.remove('is-previewing');
-  }
-
-  function setupVideo() {
-    if (videoObserver) { videoObserver.disconnect(); videoObserver = null; }
-    playBtn.querySelector('.video-block__play-text').textContent = flags.videoBanners === 'poster-link' ? 'Watch video (0:48)' : 'Play showreel (0:48)';
-    if (!engaged) {
-      previewOff();
-      video.controls = false;
-      videoBlock.classList.remove('is-inview');
-    }
-    var preview = !engaged && flags.videoBanners === 'inview-muted' && root.getAttribute('data-motion') === 'full' && 'IntersectionObserver' in window;
-    if (!preview) return;
-    videoObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        var on = en.intersectionRatio >= 0.5;
-        videoBlock.classList.toggle('is-inview', on);
-        if (on) previewOn(); else previewOff();
-      });
-    }, { threshold: [0, 0.5] });
-    videoObserver.observe(videoBlock);
-  }
-
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) { if (engaged) video.pause(); else previewOff(); }
-    else if (!engaged && videoBlock.classList.contains('is-inview')) previewOn();
-  });
-
   /* ---------- Hero pause control ---------- */
   var heroPause = $('hero-pause'), heroPaused = false;
-  heroPause.addEventListener('click', function () {
+  if (heroPause) heroPause.addEventListener('click', function () {
     heroPaused = !heroPaused;
     heroPause.setAttribute('aria-pressed', String(heroPaused));
     heroPause.querySelector('.media-pause__text').textContent = heroPaused ? 'Play background animation' : 'Pause background animation';
@@ -302,120 +224,12 @@
   S.heroPaused = function () { return heroPaused; };
 
   function setupHero() {
+    if (!heroPause) return;
     var moving = root.getAttribute('data-motion') === 'full' && (flags.animatedBackground === 'webgl' || flags.animatedBackground === 'css-gradient');
     heroPause.hidden = !moving;
   }
 
-  /* ---------- Contact form (honest server acceptance only) ---------- */
-  var form = $('contact-form'), formStatus = $('form-status'), submitBtn = form && form.querySelector('[type="submit"]');
-  var submitting = false;
-  var requestIdInput = $('f-request-id');
-
-  function ensureRequestId() {
-    if (!requestIdInput) return '';
-    if (!requestIdInput.value) {
-      requestIdInput.value = 'req_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    }
-    return requestIdInput.value;
-  }
-
-  function setFormStatus(message, tone) {
-    if (!formStatus) return;
-    formStatus.textContent = message || '';
-    formStatus.setAttribute('data-tone', tone || 'info');
-  }
-
-  function setSubmitting(on) {
-    submitting = on;
-    if (submitBtn) {
-      submitBtn.disabled = !!on;
-      submitBtn.setAttribute('aria-busy', String(!!on));
-      if (!submitBtn.dataset.label) submitBtn.dataset.label = submitBtn.textContent;
-      submitBtn.textContent = on ? 'Sending…' : submitBtn.dataset.label;
-    }
-  }
-
-  function validateContact() {
-    var ok = true;
-    [
-      ['f-name', 'Please enter your name.'],
-      ['f-email', 'Please enter a valid email address.'],
-      ['f-msg', 'Please tell us a little about your project.']
-    ].forEach(function (pair) {
-      var input = $(pair[0]), err = $(pair[0] + '-err');
-      if (!input || !err) return;
-      var valid = input.value.trim() !== '' && (input.type !== 'email' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim()));
-      err.textContent = valid ? '' : pair[1];
-      input.setAttribute('aria-invalid', String(!valid));
-      if (!valid && ok) { input.focus(); ok = false; }
-    });
-    return ok;
-  }
-
-  function applyInquiryQueryStatus() {
-    try {
-      var params = new URLSearchParams(location.search);
-      var inquiry = params.get('inquiry');
-      if (!inquiry || !formStatus) return;
-      if (inquiry === 'saved') {
-        setFormStatus('Inquiry saved on the server. Email was not sent from this demonstration environment.', 'success');
-      } else if (inquiry === 'duplicate') {
-        setFormStatus('That inquiry was already received. Your form values were kept.', 'warning');
-      } else {
-        setFormStatus('We could not save your inquiry. Please check the fields and try again.', 'error');
-      }
-    } catch (e) { /* ignore */ }
-  }
-  applyInquiryQueryStatus();
-
-  if (form) {
-    ensureRequestId();
-    form.addEventListener('submit', function (e) {
-      // When fetch is unavailable, allow native POST to /api/inquiries (form-urlencoded).
-      if (typeof fetch !== 'function' || !S.api || !S.api.postInquiry) {
-        if (!validateContact()) e.preventDefault();
-        else ensureRequestId();
-        return;
-      }
-      e.preventDefault();
-      if (submitting) return;
-      if (!validateContact()) {
-        setFormStatus('Please correct the highlighted fields.', 'error');
-        return;
-      }
-      setSubmitting(true);
-      setFormStatus('Saving your inquiry…', 'info');
-      var payload = {
-        name: $('f-name').value.trim(),
-        email: $('f-email').value.trim(),
-        service: $('f-service') ? $('f-service').value : '',
-        budget: $('f-budget') ? $('f-budget').value : '',
-        message: $('f-msg').value.trim(),
-        company_website: $('f-company') ? $('f-company').value : '',
-        clientRequestId: ensureRequestId()
-      };
-      S.api.postInquiry(payload).then(function (res) {
-        setSubmitting(false);
-        form.reset();
-        if (requestIdInput) requestIdInput.value = '';
-        ensureRequestId();
-        setFormStatus(
-          (res && res.message) || 'Inquiry saved on the server. Email was not sent from this demonstration environment.',
-          'success'
-        );
-      }, function (err) {
-        setSubmitting(false);
-        // Preserve field values on failure (no reset).
-        if (err && err.message === 'DUPLICATE_SUBMISSION') {
-          setFormStatus('That inquiry was already received. You can edit your message and try again.', 'warning');
-        } else if (err && (err.message === 'TIMEOUT' || err.message === 'NETWORK' || err.message === 'NO_FETCH')) {
-          setFormStatus('We could not reach the server. Your message is still in the form — please try again.', 'error');
-        } else {
-          setFormStatus((err && err.serverMessage) || 'We could not save your inquiry. Your message is still in the form.', 'error');
-        }
-      });
-    });
-  }
+  // The email draft form is handled independently by contact-email.js.
 
   $('year').textContent = String(new Date().getFullYear());
 
@@ -425,7 +239,6 @@
     if (!flags) return;
     setupReveals();
     setupTestimonials();
-    setupVideo();
     setupHero();
     if (flags.navigation !== 'full') header.classList.remove('is-tucked');
     var highIntro = root.getAttribute('data-mode') === 'high' && root.getAttribute('data-motion') === 'full';
